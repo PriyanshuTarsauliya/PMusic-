@@ -1168,6 +1168,35 @@ function updatePlayerUI() {
     const isCurrent = title === track.name;
     row.classList.toggle('active', isCurrent);
   });
+
+  // Android lockscreen & notification media controls
+  updateAndroidMediaSession();
+}
+
+function updateAndroidMediaSession() {
+  if (!('mediaSession' in navigator) || !State.currentTrack) return;
+  try {
+    const track = State.currentTrack;
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: track.name || track.title || 'Unknown Title',
+      artist: track.artist || 'PMusic Artist',
+      album: track.album || 'PMusic - Spotify',
+      artwork: [
+        { src: track.artwork || track.image || '', sizes: '96x96', type: 'image/jpeg' },
+        { src: track.artwork || track.image || '', sizes: '192x192', type: 'image/jpeg' },
+        { src: track.artwork || track.image || '', sizes: '512x512', type: 'image/jpeg' }
+      ]
+    });
+
+    navigator.mediaSession.playbackState = State.isPlaying ? 'playing' : 'paused';
+
+    navigator.mediaSession.setActionHandler('play', () => togglePlayPause());
+    navigator.mediaSession.setActionHandler('pause', () => togglePlayPause());
+    navigator.mediaSession.setActionHandler('previoustrack', () => playPrevTrack());
+    navigator.mediaSession.setActionHandler('nexttrack', () => playNextTrack());
+  } catch (e) {
+    // Graceful fallback if MediaSession not permitted
+  }
 }
 
 function renderQueueList() {
@@ -2141,4 +2170,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   updatePlayerUI();
   logUbiEvent('hitSessionStart', 'desktop-find.browseAll');
+
+  // Register Android PWA Service Worker for standalone installability and instant caching
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js').catch(() => {});
+    });
+  }
 });

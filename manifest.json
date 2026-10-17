@@ -1,0 +1,26 @@
+{
+  "name": "PMusic - Spotify Search & Player",
+  "short_name": "PMusic",
+  "description": "Full Spotify music catalog search, continuous queue streaming, chat importer, and cloud database library sync.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#121212",
+  "theme_color": "#121212",
+  "categories": ["music", "entertainment"],
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='50' fill='%231ed760'/><path d='M30 65c12-3 28-2 40 5M26 50c16-4 35-3 48 5M22 35c20-5 44-3 56 6' stroke='%23000' stroke-width='6' stroke-linecap='round' fill='none'/></svg>",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='50' fill='%231ed760'/><path d='M30 65c12-3 28-2 40 5M26 50c16-4 35-3 48 5M22 35c20-5 44-3 56 6' stroke='%23000' stroke-width='6' stroke-linecap='round' fill='none'/></svg>",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

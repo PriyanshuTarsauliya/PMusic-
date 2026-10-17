@@ -36,6 +36,11 @@
   box-sizing: border-box;
   margin: 0;
   padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html, body {
+  touch-action: manipulation;
 }
 
 html, body {
@@ -2577,12 +2582,14 @@ html, body {
     display: flex;
     align-items: center;
     justify-content: space-around;
-    height: var(--mobile-nav-height);
+    height: calc(var(--mobile-nav-height) + env(safe-area-inset-bottom, 0px));
+    padding-bottom: env(safe-area-inset-bottom, 0px);
     background: rgba(16, 16, 16, 0.98);
     border-top: 1px solid rgba(255, 255, 255, 0.08);
     position: relative;
     z-index: 55;
-    padding: 0 6px;
+    padding-left: 6px;
+    padding-right: 6px;
   }
 
   .mobile-nav-btn {
