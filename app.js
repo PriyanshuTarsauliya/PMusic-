@@ -132,6 +132,37 @@ const CURATED_PLAYLISTS = [
 // 2. RUNTIME STATE & UBI TELEMETRY
 // ==========================================================================
 
+const LIBRARY_STORAGE_KEY = 'pmusic_user_library_v1';
+const LIKED_STORAGE_KEY = 'pmusic_liked_tracks_v1';
+
+function loadLikedTrackIds() {
+  try {
+    const raw = localStorage.getItem(LIKED_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : ['track-1'];
+  } catch (e) {
+    return ['track-1'];
+  }
+}
+
+function saveLikedTrackIds() {
+  try {
+    localStorage.setItem(LIKED_STORAGE_KEY, JSON.stringify([...State.likedTracks]));
+  } catch (e) {}
+}
+
+function loadUserLibrary() {
+  try {
+    const raw = localStorage.getItem(LIBRARY_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch (e) {
+    console.warn('Error loading localStorage library:', e);
+  }
+  return [CURATED_TRACKS[0], CURATED_TRACKS[1], CURATED_TRACKS[2]];
+}
+
 const State = {
   query: '',
   activeCategory: 'all',
@@ -141,7 +172,8 @@ const State = {
   currentTrack: CURATED_TRACKS[0],
   isPlaying: false,
   playbackMode: 'full', // 'full' (YouTube streaming) or 'preview'
-  likedTracks: new Set(['track-1']),
+  likedTracks: new Set(loadLikedTrackIds()),
+  libraryTracks: loadUserLibrary(),
   recentSearches: loadRecentSearches(),
   queue: [...CURATED_TRACKS],
   queueIndex: 0,
@@ -173,6 +205,405 @@ function saveRecentSearches() {
   try {
     localStorage.setItem('spotify_recent_searches', JSON.stringify(State.recentSearches.slice(0, 10)));
   } catch (e) {}
+}
+
+// ==========================================================================
+// PERMANENT USER LIBRARY & CHAT IMPORTER LOGIC
+// ==========================================================================
+
+async function syncServerLibrary() {
+  try {
+    const res = await fetch('/api/library');
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data.tracks) && data.tracks.length > 0) {
+        const existingKeys = new Set(State.libraryTracks.map(t => `${t.name}-${t.artist}`.toLowerCase()));
+        let added = false;
+        data.tracks.forEach(t => {
+          const key = `${t.name}-${t.artist}`.toLowerCase();
+          if (!existingKeys.has(key)) {
+            State.libraryTracks.push(t);
+            existingKeys.add(key);
+            added = true;
+          }
+        });
+        if (added) {
+          saveUserLibrary(State.libraryTracks, false);
+          renderSidebarLibrary();
+        }
+      }
+    }
+  } catch (e) {
+    // Offline / fallback to localStorage
+  }
+}
+
+function saveUserLibrary(tracks, syncServer = true) {
+  try {
+    localStorage.setItem(LIBRARY_STORAGE_KEY, JSON.stringify(tracks));
+  } catch (e) {
+    console.error('Error saving library to localStorage:', e);
+  }
+
+  if (syncServer) {
+    try {
+      fetch('/api/library', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tracks })
+      }).catch(() => {});
+    } catch (e) {}
+  }
+
+  renderSidebarLibrary();
+}
+
+function addTrackToLibrary(track) {
+  const key = `${track.name}-${track.artist}`.toLowerCase();
+  const exists = State.libraryTracks.some(t => `${t.name}-${t.artist}`.toLowerCase() === key);
+  if (!exists) {
+    State.libraryTracks.unshift(track);
+    State.likedTracks.add(track.id);
+    saveLikedTrackIds();
+    saveUserLibrary(State.libraryTracks);
+    logUbiEvent('hitAddToLibrary', `${track.name} by ${track.artist}`);
+    return true;
+  }
+  return false;
+}
+
+function removeTrackFromLibrary(trackId) {
+  State.libraryTracks = State.libraryTracks.filter(t => t.id !== trackId);
+  State.likedTracks.delete(trackId);
+  saveLikedTrackIds();
+  saveUserLibrary(State.libraryTracks);
+  logUbiEvent('hitRemoveFromLibrary', trackId);
+  updatePlayerUI();
+}
+
+function clearUserLibrary() {
+  if (confirm('Are you sure you want to clear all saved songs from your library?')) {
+    State.libraryTracks = [];
+    State.likedTracks.clear();
+    saveLikedTrackIds();
+    saveUserLibrary(State.libraryTracks);
+    logUbiEvent('hitClearLibrary', 'all');
+  }
+}
+
+function toggleLikeTrack(trackId) {
+  if (!trackId && State.currentTrack) trackId = State.currentTrack.id;
+  if (!trackId) return;
+
+  const track = (State.currentTrack && State.currentTrack.id === trackId)
+    ? State.currentTrack
+    : State.libraryTracks.find(t => t.id === trackId) || CURATED_TRACKS.find(t => t.id === trackId);
+
+  if (State.likedTracks.has(trackId)) {
+    State.likedTracks.delete(trackId);
+    if (track) removeTrackFromLibrary(track.id);
+  } else {
+    State.likedTracks.add(trackId);
+    if (track) addTrackToLibrary(track);
+  }
+  saveLikedTrackIds();
+  updatePlayerUI();
+}
+
+function renderSidebarLibrary() {
+  const container = document.getElementById('sidebar-library-scroll');
+  const countPill = document.getElementById('library-count-pill');
+  const playAllBtn = document.getElementById('btn-library-play-all');
+  const clearBtn = document.getElementById('btn-library-clear-all');
+
+  const tracks = State.libraryTracks || [];
+  if (countPill) countPill.textContent = `${tracks.length} song${tracks.length === 1 ? '' : 's'}`;
+  if (playAllBtn) playAllBtn.disabled = tracks.length === 0;
+  if (clearBtn) clearBtn.style.display = tracks.length > 0 ? 'inline-block' : 'none';
+
+  if (!container) return;
+  container.innerHTML = '';
+
+  if (tracks.length === 0) {
+    container.innerHTML = `
+      <div class="sidebar-library-empty">
+        <p>Your library is empty.</p>
+        <button class="sidebar-library-empty-btn" id="btn-library-empty-add">✨ Import with Chat Box</button>
+      </div>
+    `;
+    const emptyBtn = document.getElementById('btn-library-empty-add');
+    if (emptyBtn) emptyBtn.addEventListener('click', openChatModal);
+    return;
+  }
+
+  tracks.forEach(track => {
+    const item = document.createElement('div');
+    const isCurrent = State.currentTrack && (State.currentTrack.name === track.name);
+    item.className = `sidebar-library-item ${isCurrent ? 'active' : ''}`;
+    item.innerHTML = `
+      <img class="sidebar-library-thumb" src="${track.artwork || 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=100'}" alt="${escapeHtml(track.name)}">
+      <div class="sidebar-library-info">
+        <div class="sidebar-library-title">${escapeHtml(track.name)}</div>
+        <div class="sidebar-library-artist">${escapeHtml(track.artist)}</div>
+      </div>
+      <div class="sidebar-library-actions">
+        <button class="sidebar-lib-btn play" title="Play Now">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+        </button>
+        <button class="sidebar-lib-btn delete" title="Remove from Library">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+        </button>
+      </div>
+    `;
+
+    item.addEventListener('click', (e) => {
+      if (e.target.closest('.delete')) {
+        e.stopPropagation();
+        removeTrackFromLibrary(track.id);
+        return;
+      }
+      playFullTrack(track);
+      State.queue = [...State.libraryTracks];
+      State.queueIndex = State.queue.findIndex(t => t.id === track.id);
+      renderQueueList();
+    });
+
+    container.appendChild(item);
+  });
+}
+
+const SAMPLE_INPUTS = {
+  numbered: `1. Starboy - The Weeknd
+2. Yellow - Coldplay
+3. Levitating - Dua Lipa
+4. Believer - Imagine Dragons
+5. Kesariya - Arijit Singh`,
+
+  lines: `Coldplay - Viva La Vida
+Queen - Bohemian Rhapsody
+Ed Sheeran - Perfect
+Alan Walker - Faded
+Taylor Swift - Cruel Summer`,
+
+  comma: `Blinding Lights, Birds of a Feather, Get Lucky, Starboy, Flowers - Miley Cyrus`,
+
+  chat: `Hey, please add these favorite songs to my library:
+- Night Changes by One Direction
+- As It Was by Harry Styles
+- Stay by Justin Bieber
+- Heat Waves by Glass Animals`
+};
+
+function parseSongNamesFromText(rawText) {
+  if (!rawText || !rawText.trim()) return [];
+
+  // Remove common conversational fluff
+  let text = rawText
+    .replace(/^(hey|hi|hello|please|can you|could you|i want to|add|save|these songs|to my library|to the library|here are|my list of songs|thanks)[:,\s]*/gim, '')
+    .replace(/(please add them|add to library|thank you|thanks).*$/gim, '');
+
+  const lines = text.split(/\r?\n/);
+  const candidates = [];
+
+  for (let line of lines) {
+    line = line.trim();
+    if (!line) continue;
+
+    if (line.includes(',') && !line.includes(' - ') && !line.includes(' by ')) {
+      const parts = line.split(',');
+      for (let p of parts) {
+        cleanAndPush(p, candidates);
+      }
+    } else {
+      cleanAndPush(line, candidates);
+    }
+  }
+
+  return candidates;
+}
+
+function cleanAndPush(str, targetList) {
+  let s = str.trim();
+  s = s.replace(/^(\d+[\.\)\:]|\*|\-|•|\[\d+\])\s*/, '').trim();
+  s = s.replace(/^["'“](.*)["'”]$/, '$1').trim();
+  if (s.length >= 2 && !/^(song|track|artist|album|name|playlist)$/i.test(s)) {
+    targetList.push(s);
+  }
+}
+
+async function resolveSingleSongQuery(query) {
+  try {
+    const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=music&entity=song&limit=1`);
+    if (res.ok) {
+      const data = await res.json();
+      if (data.results && data.results.length > 0) {
+        const item = data.results[0];
+        const durSec = Math.round(item.trackTimeMillis / 1000) || 180;
+        return {
+          id: `lib-${item.trackId || Date.now()}-${Math.random().toString(36).substring(2,6)}`,
+          name: item.trackName,
+          artist: item.artistName,
+          album: item.collectionName || 'Single',
+          albumYear: (item.releaseDate || '').substring(0, 4) || '2024',
+          duration: durSec,
+          durationFormatted: formatDuration(durSec),
+          artwork: (item.artworkUrl100 || '').replace('100x100bb', '400x400bb'),
+          previewUrl: item.previewUrl,
+          youtubeId: null,
+          addedAt: Date.now()
+        };
+      }
+    }
+  } catch (err) {
+    console.warn('iTunes search error for query:', query, err);
+  }
+
+  // Fallback: parse query into Title and Artist
+  let title = query;
+  let artist = 'Various Artists';
+  if (query.includes(' - ')) {
+    const parts = query.split(' - ');
+    artist = parts[0].trim();
+    title = parts.slice(1).join(' - ').trim();
+  } else if (query.toLowerCase().includes(' by ')) {
+    const parts = query.split(/ by /i);
+    title = parts[0].trim();
+    artist = parts[1].trim();
+  }
+
+  return {
+    id: `lib-custom-${Date.now()}-${Math.random().toString(36).substring(2,6)}`,
+    name: title,
+    artist: artist,
+    album: 'Custom Track',
+    albumYear: '2024',
+    duration: 200,
+    durationFormatted: '3:20',
+    artwork: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=400&auto=format&fit=crop&q=80',
+    previewUrl: null,
+    youtubeId: null,
+    addedAt: Date.now()
+  };
+}
+
+function openChatModal() {
+  const modal = document.getElementById('chat-modal-overlay');
+  if (modal) {
+    modal.style.display = 'flex';
+    const textarea = document.getElementById('chat-song-textarea');
+    if (textarea) {
+      if (!textarea.value.trim()) {
+        textarea.value = SAMPLE_INPUTS.numbered;
+      }
+      updateChatInputCounter();
+      setTimeout(() => textarea.focus(), 80);
+    }
+    logUbiEvent('hitOpenChatImporter', 'modal');
+  }
+}
+
+function closeChatModal() {
+  const modal = document.getElementById('chat-modal-overlay');
+  if (modal) modal.style.display = 'none';
+}
+
+function updateChatInputCounter() {
+  const textarea = document.getElementById('chat-song-textarea');
+  const counter = document.getElementById('chat-input-counter');
+  if (!textarea || !counter) return;
+
+  const count = parseSongNamesFromText(textarea.value).length;
+  counter.textContent = `${count} song${count === 1 ? '' : 's'} detected`;
+}
+
+async function executeChatImport() {
+  const textarea = document.getElementById('chat-song-textarea');
+  const rawText = textarea ? textarea.value.trim() : '';
+  if (!rawText) {
+    alert('Please enter or paste at least one song name.');
+    return;
+  }
+
+  const queries = parseSongNamesFromText(rawText);
+  if (queries.length === 0) {
+    alert('No song titles could be detected. Please check the examples above.');
+    return;
+  }
+
+  const submitBtn = document.getElementById('btn-chat-submit-import');
+  const submitText = document.getElementById('btn-chat-submit-text');
+  const resultsPanel = document.getElementById('chat-results-panel');
+  const statusMessage = document.getElementById('chat-status-message');
+  const spinner = document.getElementById('chat-spinner');
+  const resultsList = document.getElementById('chat-results-list');
+  const actionsRow = document.getElementById('chat-results-actions');
+
+  if (submitBtn) submitBtn.disabled = true;
+  if (submitText) submitText.textContent = 'Resolving Songs...';
+  if (resultsPanel) resultsPanel.style.display = 'block';
+  if (spinner) spinner.style.display = 'inline-block';
+  if (actionsRow) actionsRow.style.display = 'none';
+  if (resultsList) resultsList.innerHTML = '';
+
+  const newlyAdded = [];
+
+  for (let i = 0; i < queries.length; i++) {
+    const q = queries[i];
+    if (statusMessage) {
+      statusMessage.textContent = `Resolving (${i + 1}/${queries.length}): "${q}"...`;
+    }
+
+    const track = await resolveSingleSongQuery(q);
+    const added = addTrackToLibrary(track);
+    newlyAdded.push(track);
+
+    if (resultsList) {
+      const card = document.createElement('div');
+      card.className = 'chat-result-card fade-in';
+      card.innerHTML = `
+        <div class="chat-result-card-left">
+          <img class="chat-result-thumb" src="${track.artwork}" alt="${escapeHtml(track.name)}">
+          <div>
+            <div class="chat-result-title">${escapeHtml(track.name)}</div>
+            <div class="chat-result-artist">${escapeHtml(track.artist)} &middot; ${track.durationFormatted}</div>
+          </div>
+        </div>
+        <div class="chat-result-badge">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+          <span>${added ? 'Added to Library' : 'Already in Library'}</span>
+        </div>
+      `;
+      resultsList.appendChild(card);
+    }
+  }
+
+  if (spinner) spinner.style.display = 'none';
+  if (statusMessage) {
+    statusMessage.textContent = `🎉 Successfully processed ${queries.length} song${queries.length === 1 ? '' : 's'} and saved permanently!`;
+  }
+  if (actionsRow) actionsRow.style.display = 'block';
+  if (submitBtn) submitBtn.disabled = false;
+  if (submitText) submitText.textContent = 'Parse & Save to Library';
+
+  const playImportedBtn = document.getElementById('btn-modal-play-imported');
+  if (playImportedBtn) {
+    playImportedBtn.onclick = () => {
+      closeChatModal();
+      playAllSongs(newlyAdded);
+    };
+  }
+
+  logUbiEvent('hitBatchImportComplete', `Count: ${queries.length}`);
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 function addRecentItem(item) {
@@ -1119,11 +1550,95 @@ document.addEventListener('DOMContentLoaded', () => {
       searchInput.select();
     }
     // Spacebar to toggle play/pause when not in search input
-    if (e.code === 'Space' && document.activeElement !== searchInput) {
+    if (e.code === 'Space' && document.activeElement !== searchInput && document.activeElement?.id !== 'chat-song-textarea') {
       e.preventDefault();
       togglePlayPause();
     }
+    // Escape closes modal
+    if (e.key === 'Escape') {
+      closeChatModal();
+    }
   });
+
+  // Chat Importer Modal Event Bindings
+  const btnHeaderChat = document.getElementById('btn-header-open-chat');
+  if (btnHeaderChat) btnHeaderChat.addEventListener('click', openChatModal);
+
+  const btnSidebarAdd = document.getElementById('btn-sidebar-add-songs');
+  if (btnSidebarAdd) btnSidebarAdd.addEventListener('click', openChatModal);
+
+  const btnCloseChat = document.getElementById('btn-close-chat-modal');
+  if (btnCloseChat) btnCloseChat.addEventListener('click', closeChatModal);
+
+  const modalOverlay = document.getElementById('chat-modal-overlay');
+  if (modalOverlay) {
+    modalOverlay.addEventListener('click', (e) => {
+      if (e.target === modalOverlay) closeChatModal();
+    });
+  }
+
+  // Example Chips
+  document.querySelectorAll('.chat-example-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      const type = chip.getAttribute('data-example');
+      const textarea = document.getElementById('chat-song-textarea');
+      if (textarea && SAMPLE_INPUTS[type]) {
+        textarea.value = SAMPLE_INPUTS[type];
+        updateChatInputCounter();
+      }
+    });
+  });
+
+  const btnFillSample = document.getElementById('btn-chat-fill-sample');
+  if (btnFillSample) {
+    btnFillSample.addEventListener('click', () => {
+      const textarea = document.getElementById('chat-song-textarea');
+      if (textarea) {
+        textarea.value = SAMPLE_INPUTS.lines;
+        updateChatInputCounter();
+      }
+    });
+  }
+
+  const btnClearChat = document.getElementById('btn-chat-clear-input');
+  if (btnClearChat) {
+    btnClearChat.addEventListener('click', () => {
+      const textarea = document.getElementById('chat-song-textarea');
+      if (textarea) {
+        textarea.value = '';
+        updateChatInputCounter();
+      }
+    });
+  }
+
+  const chatTextarea = document.getElementById('chat-song-textarea');
+  if (chatTextarea) {
+    chatTextarea.addEventListener('input', updateChatInputCounter);
+  }
+
+  const btnSubmitImport = document.getElementById('btn-chat-submit-import');
+  if (btnSubmitImport) {
+    btnSubmitImport.addEventListener('click', executeChatImport);
+  }
+
+  // Library Toolbar Action Buttons
+  const btnLibPlayAll = document.getElementById('btn-library-play-all');
+  if (btnLibPlayAll) {
+    btnLibPlayAll.addEventListener('click', () => {
+      if (State.libraryTracks.length > 0) {
+        playAllSongs(State.libraryTracks);
+      }
+    });
+  }
+
+  const btnLibClearAll = document.getElementById('btn-library-clear-all');
+  if (btnLibClearAll) {
+    btnLibClearAll.addEventListener('click', clearUserLibrary);
+  }
+
+  // Initialize Library
+  renderSidebarLibrary();
+  syncServerLibrary();
 
   updatePlayerUI();
   logUbiEvent('hitSessionStart', 'desktop-find.browseAll');

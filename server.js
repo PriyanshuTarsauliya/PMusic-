@@ -17,6 +17,37 @@ const MIME = {
   '.svg': 'image/svg+xml'
 };
 
+const DATA_DIR = path.join(DIR, 'data');
+const LIBRARY_FILE = path.join(DATA_DIR, 'library.json');
+
+function getSavedLibrary() {
+  try {
+    if (!fs.existsSync(DATA_DIR)) {
+      fs.mkdirSync(DATA_DIR, { recursive: true });
+    }
+    if (fs.existsSync(LIBRARY_FILE)) {
+      const data = fs.readFileSync(LIBRARY_FILE, 'utf8');
+      return JSON.parse(data || '[]');
+    }
+  } catch (e) {
+    console.error('Error reading library.json:', e.message);
+  }
+  return [];
+}
+
+function saveLibrary(tracks) {
+  try {
+    if (!fs.existsSync(DATA_DIR)) {
+      fs.mkdirSync(DATA_DIR, { recursive: true });
+    }
+    fs.writeFileSync(LIBRARY_FILE, JSON.stringify(tracks, null, 2), 'utf8');
+    return true;
+  } catch (e) {
+    console.error('Error writing library.json:', e.message);
+    return false;
+  }
+}
+
 const resolveCache = new Map();
 
 // High-speed full song YouTube audio resolver
@@ -75,6 +106,33 @@ const server = http.createServer(async (req, res) => {
     const result = await resolveFullSong(q);
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(result));
+    return;
+  }
+
+  // API Route: Get permanent saved library songs
+  if (pathname === '/api/library' && req.method === 'GET') {
+    const lib = getSavedLibrary();
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ tracks: lib }));
+    return;
+  }
+
+  // API Route: Save permanent library songs
+  if (pathname === '/api/library' && req.method === 'POST') {
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', () => {
+      try {
+        const payload = JSON.parse(body || '{}');
+        const tracks = Array.isArray(payload) ? payload : (payload.tracks || []);
+        saveLibrary(tracks);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true, count: tracks.length }));
+      } catch (err) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Invalid JSON payload' }));
+      }
+    });
     return;
   }
 
