@@ -1,0 +1,20 @@
+{
+  "name": "spotify-search",
+  "version": "1.0.0",
+  "description": "Spotify Search & YouTube Full-Song Audio Resolver",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": [
+    "spotify",
+    "music",
+    "render"
+  ],
+  "author": "",
+  "license": "ISC",
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
