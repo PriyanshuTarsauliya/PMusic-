@@ -1636,6 +1636,73 @@ document.addEventListener('DOMContentLoaded', () => {
     btnLibClearAll.addEventListener('click', clearUserLibrary);
   }
 
+  // Mobile Sidebar Drawer & Backdrop Handlers
+  const btnMobileMenu = document.getElementById('btn-mobile-menu');
+  const btnSidebarClose = document.getElementById('btn-sidebar-close');
+  const sidebarBackdrop = document.getElementById('sidebar-backdrop');
+  const appSidebar = document.querySelector('.app-sidebar');
+
+  function openMobileSidebar() {
+    if (appSidebar) appSidebar.classList.add('open');
+    if (sidebarBackdrop) sidebarBackdrop.classList.add('open');
+  }
+
+  function closeMobileSidebar() {
+    if (appSidebar) appSidebar.classList.remove('open');
+    if (sidebarBackdrop) sidebarBackdrop.classList.remove('open');
+  }
+
+  if (btnMobileMenu) btnMobileMenu.addEventListener('click', openMobileSidebar);
+  if (btnSidebarClose) btnSidebarClose.addEventListener('click', closeMobileSidebar);
+  if (sidebarBackdrop) sidebarBackdrop.addEventListener('click', closeMobileSidebar);
+
+  // Mobile Bottom Navigation Bar Bindings
+  const mobileNavHome = document.getElementById('mobile-nav-home');
+  const mobileNavSearch = document.getElementById('mobile-nav-search');
+  const mobileNavLibrary = document.getElementById('mobile-nav-library');
+  const mobileNavChat = document.getElementById('mobile-nav-chat');
+
+  function setMobileNavActive(activeBtn) {
+    document.querySelectorAll('.mobile-nav-btn').forEach(btn => btn.classList.remove('active'));
+    if (activeBtn) activeBtn.classList.add('active');
+  }
+
+  if (mobileNavHome) {
+    mobileNavHome.addEventListener('click', () => {
+      setMobileNavActive(mobileNavHome);
+      closeMobileSidebar();
+      if (searchInput) searchInput.value = '';
+      onSearchInput({ target: { value: '' } });
+      const viewport = document.getElementById('search-viewport');
+      if (viewport) viewport.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+  }
+
+  if (mobileNavSearch) {
+    mobileNavSearch.addEventListener('click', () => {
+      setMobileNavActive(mobileNavSearch);
+      closeMobileSidebar();
+      if (searchInput) {
+        searchInput.focus();
+        searchInput.select();
+      }
+    });
+  }
+
+  if (mobileNavLibrary) {
+    mobileNavLibrary.addEventListener('click', () => {
+      setMobileNavActive(mobileNavLibrary);
+      openMobileSidebar();
+    });
+  }
+
+  if (mobileNavChat) {
+    mobileNavChat.addEventListener('click', () => {
+      closeMobileSidebar();
+      openChatModal();
+    });
+  }
+
   // Initialize Library
   renderSidebarLibrary();
   syncServerLibrary();
