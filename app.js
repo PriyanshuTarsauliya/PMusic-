@@ -134,6 +134,21 @@ const CURATED_PLAYLISTS = [
 
 const LIBRARY_STORAGE_KEY = 'pmusic_user_library_v1';
 const LIKED_STORAGE_KEY = 'pmusic_liked_tracks_v1';
+const AUTH_TOKEN_KEY = 'pmusic_auth_token_v1';
+const AUTH_USER_KEY = 'pmusic_auth_user_v1';
+
+function loadStoredAuth() {
+  try {
+    const token = localStorage.getItem(AUTH_TOKEN_KEY);
+    const userRaw = localStorage.getItem(AUTH_USER_KEY);
+    const user = userRaw ? JSON.parse(userRaw) : null;
+    return { token: token || null, user: user || null };
+  } catch (e) {
+    return { token: null, user: null };
+  }
+}
+
+const initialAuth = loadStoredAuth();
 
 function loadLikedTrackIds() {
   try {
@@ -179,6 +194,8 @@ const State = {
   queueIndex: 0,
   isShuffle: false,
   isRepeat: false,
+  authToken: initialAuth.token,
+  currentUser: initialAuth.user,
   currentSearchResults: {
     topResult: null,
     tracks: [],
@@ -211,8 +228,80 @@ function saveRecentSearches() {
 // PERMANENT USER LIBRARY & CHAT IMPORTER LOGIC
 // ==========================================================================
 
+// Floating notification toast banner for feedback
+function showBannerToast(msg, duration = 3500) {
+  let toast = document.getElementById('pmusic-toast-banner');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'pmusic-toast-banner';
+    toast.style.cssText = `
+      position: fixed;
+      bottom: calc(var(--player-height) + 18px);
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: #1ed760;
+      color: #000;
+      font-weight: 700;
+      font-size: 0.85rem;
+      padding: 10px 22px;
+      border-radius: 500px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.7);
+      z-index: 9999;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease, transform 0.25s ease;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    `;
+    document.body.appendChild(toast);
+  }
+  toast.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg><span>${msg}</span>`;
+  toast.style.opacity = '1';
+  toast.style.transform = 'translateX(-50%) translateY(0)';
+  clearTimeout(toast._timer);
+  toast._timer = setTimeout(() => {
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateX(-50%) translateY(20px)';
+  }, duration);
+}
+
+// Sync library with permanent server database
 async function syncServerLibrary() {
   try {
+    if (State.authToken) {
+      const res = await fetch('/api/user/library', {
+        headers: {
+          'Authorization': `Bearer ${State.authToken}`
+        }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.tracks)) {
+          const remoteKeys = new Set(data.tracks.map(t => `${t.name}-${t.artist}`.toLowerCase()));
+          let needsRemoteUpdate = false;
+          (State.libraryTracks || []).forEach(t => {
+            const key = `${t.name}-${t.artist}`.toLowerCase();
+            if (!remoteKeys.has(key)) {
+              data.tracks.push(t);
+              remoteKeys.add(key);
+              needsRemoteUpdate = true;
+            }
+          });
+
+          State.libraryTracks = data.tracks;
+          State.libraryTracks.forEach(t => State.likedTracks.add(t.id));
+          saveLikedTrackIds();
+          saveUserLibrary(State.libraryTracks, needsRemoteUpdate);
+          renderSidebarLibrary();
+          return;
+        }
+      } else if (res.status === 401) {
+        handleLogout(false);
+      }
+    }
+
+    // Guest fallback sync
     const res = await fetch('/api/library');
     if (res.ok) {
       const data = await res.json();
@@ -234,10 +323,11 @@ async function syncServerLibrary() {
       }
     }
   } catch (e) {
-    // Offline / fallback to localStorage
+    // LocalStorage keeps working seamlessly
   }
 }
 
+// Save library locally & synchronize to database
 function saveUserLibrary(tracks, syncServer = true) {
   try {
     localStorage.setItem(LIBRARY_STORAGE_KEY, JSON.stringify(tracks));
@@ -247,15 +337,229 @@ function saveUserLibrary(tracks, syncServer = true) {
 
   if (syncServer) {
     try {
-      fetch('/api/library', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tracks })
-      }).catch(() => {});
+      if (State.authToken) {
+        fetch('/api/user/library', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${State.authToken}`
+          },
+          body: JSON.stringify({ tracks })
+        }).catch(() => {});
+      } else {
+        fetch('/api/library', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tracks })
+        }).catch(() => {});
+      }
     } catch (e) {}
   }
 
   renderSidebarLibrary();
+}
+
+// Update authentication UI elements throughout header and sidebar
+function updateAuthUI() {
+  const headerLoginBtn = document.getElementById('btn-header-login');
+  const userProfileWrapper = document.getElementById('user-profile-wrapper');
+  const userAvatarInitial = document.getElementById('user-avatar-initial');
+  const userDropdownUsername = document.getElementById('user-dropdown-username');
+  const sidebarUserCard = document.getElementById('sidebar-user-card');
+  const sidebarUserAvatar = document.getElementById('sidebar-user-avatar');
+  const sidebarUserName = document.getElementById('sidebar-user-name');
+  const sidebarUserStatus = document.getElementById('sidebar-user-status');
+  const btnSidebarAuth = document.getElementById('btn-sidebar-auth');
+
+  if (State.currentUser && State.authToken) {
+    const username = State.currentUser.username || 'User';
+    const initial = (username[0] || 'U').toUpperCase();
+
+    if (headerLoginBtn) headerLoginBtn.style.display = 'none';
+    if (userProfileWrapper) userProfileWrapper.style.display = 'block';
+    if (userAvatarInitial) userAvatarInitial.textContent = initial;
+    if (userDropdownUsername) userDropdownUsername.textContent = username;
+
+    if (sidebarUserCard) sidebarUserCard.classList.add('logged-in');
+    if (sidebarUserAvatar) sidebarUserAvatar.textContent = initial;
+    if (sidebarUserName) sidebarUserName.textContent = username;
+    if (sidebarUserStatus) sidebarUserStatus.textContent = '● Synced in Cloud Database';
+    if (btnSidebarAuth) btnSidebarAuth.textContent = 'Account';
+  } else {
+    if (headerLoginBtn) headerLoginBtn.style.display = 'block';
+    if (userProfileWrapper) userProfileWrapper.style.display = 'none';
+    const popover = document.getElementById('user-dropdown-popover');
+    if (popover) popover.style.display = 'none';
+
+    if (sidebarUserCard) sidebarUserCard.classList.remove('logged-in');
+    if (sidebarUserAvatar) sidebarUserAvatar.textContent = '?';
+    if (sidebarUserName) sidebarUserName.textContent = 'Guest Mode';
+    if (sidebarUserStatus) sidebarUserStatus.textContent = 'Log in to save songs anywhere';
+    if (btnSidebarAuth) btnSidebarAuth.textContent = 'Log In';
+  }
+}
+
+let currentAuthMode = 'login'; // 'login' or 'register'
+
+function openAuthModal(mode = 'login') {
+  currentAuthMode = mode;
+  const overlay = document.getElementById('auth-modal-overlay');
+  const alertEl = document.getElementById('auth-alert');
+  const loginTab = document.getElementById('auth-tab-login');
+  const registerTab = document.getElementById('auth-tab-register');
+  const confirmGroup = document.getElementById('auth-confirm-group');
+  const title = document.getElementById('auth-modal-title');
+  const subtitle = document.getElementById('auth-modal-subtitle');
+  const submitLabel = document.getElementById('auth-submit-label');
+  const userInput = document.getElementById('auth-username-input');
+
+  if (alertEl) {
+    alertEl.style.display = 'none';
+    alertEl.textContent = '';
+  }
+
+  if (mode === 'register') {
+    if (loginTab) loginTab.classList.remove('active');
+    if (registerTab) registerTab.classList.add('active');
+    if (confirmGroup) confirmGroup.style.display = 'flex';
+    if (title) title.textContent = 'Create a Free Account';
+    if (subtitle) subtitle.textContent = 'Choose any username & password to permanently save all your songs in the database.';
+    if (submitLabel) submitLabel.textContent = 'Create Account & Sync';
+  } else {
+    if (loginTab) loginTab.classList.add('active');
+    if (registerTab) registerTab.classList.remove('active');
+    if (confirmGroup) confirmGroup.style.display = 'none';
+    if (title) title.textContent = 'Log in to save songs anywhere';
+    if (subtitle) subtitle.textContent = 'Log in with any username & password to access your songs on any phone, browser, or laptop.';
+    if (submitLabel) submitLabel.textContent = 'Log In';
+  }
+
+  if (overlay) overlay.style.display = 'flex';
+  if (userInput) {
+    setTimeout(() => userInput.focus(), 80);
+  }
+}
+
+function closeAuthModal() {
+  const overlay = document.getElementById('auth-modal-overlay');
+  if (overlay) overlay.style.display = 'none';
+  const alertEl = document.getElementById('auth-alert');
+  if (alertEl) alertEl.style.display = 'none';
+}
+
+async function handleAuthSubmit() {
+  const userInput = document.getElementById('auth-username-input');
+  const pwdInput = document.getElementById('auth-password-input');
+  const confirmInput = document.getElementById('auth-password-confirm');
+  const alertEl = document.getElementById('auth-alert');
+  const submitBtn = document.getElementById('btn-auth-submit');
+  const spinner = document.getElementById('auth-submit-spinner');
+
+  const username = (userInput ? userInput.value : '').trim();
+  const password = (pwdInput ? pwdInput.value : '').trim();
+  const confirmPwd = (confirmInput ? confirmInput.value : '').trim();
+
+  function showError(msg) {
+    if (alertEl) {
+      alertEl.className = 'auth-alert error';
+      alertEl.textContent = msg;
+      alertEl.style.display = 'block';
+    }
+  }
+
+  if (!username) {
+    showError('Please enter a username.');
+    return;
+  }
+  if (!password) {
+    showError('Please enter a password.');
+    return;
+  }
+
+  if (currentAuthMode === 'register') {
+    if (password.length < 4) {
+      showError('Password must be at least 4 characters long.');
+      return;
+    }
+    if (password !== confirmPwd) {
+      showError('Passwords do not match. Please re-enter.');
+      return;
+    }
+  }
+
+  if (submitBtn) submitBtn.disabled = true;
+  if (spinner) spinner.style.display = 'inline-block';
+
+  try {
+    const endpoint = currentAuthMode === 'register' ? '/api/auth/register' : '/api/auth/login';
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username,
+        password,
+        initialLibrary: currentAuthMode === 'register' ? State.libraryTracks : undefined
+      })
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      showError(data.error || 'Authentication failed. Please check credentials.');
+      return;
+    }
+
+    State.authToken = data.token;
+    State.currentUser = data.user;
+    localStorage.setItem(AUTH_TOKEN_KEY, data.token);
+    localStorage.setItem(AUTH_USER_KEY, JSON.stringify(data.user));
+
+    if (Array.isArray(data.user.library)) {
+      const serverKeys = new Set(data.user.library.map(t => `${t.name}-${t.artist}`.toLowerCase()));
+      let mergedAny = false;
+      State.libraryTracks.forEach(t => {
+        const key = `${t.name}-${t.artist}`.toLowerCase();
+        if (!serverKeys.has(key)) {
+          data.user.library.push(t);
+          serverKeys.add(key);
+          mergedAny = true;
+        }
+      });
+      State.libraryTracks = data.user.library;
+      State.libraryTracks.forEach(t => State.likedTracks.add(t.id));
+      saveLikedTrackIds();
+      saveUserLibrary(State.libraryTracks, true);
+    }
+
+    updateAuthUI();
+    closeAuthModal();
+
+    showBannerToast(`Welcome, ${data.user.username}! All songs are saved to database.`);
+  } catch (err) {
+    showError('Connection error. Could not contact PMusic database server.');
+  } finally {
+    if (submitBtn) submitBtn.disabled = false;
+    if (spinner) spinner.style.display = 'none';
+  }
+}
+
+async function handleLogout(callApi = true) {
+  if (callApi && State.authToken) {
+    try {
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${State.authToken}` }
+      });
+    } catch (e) {}
+  }
+
+  State.authToken = null;
+  State.currentUser = null;
+  localStorage.removeItem(AUTH_TOKEN_KEY);
+  localStorage.removeItem(AUTH_USER_KEY);
+
+  updateAuthUI();
+  showBannerToast('Logged out. Switched to Guest Mode.');
 }
 
 function addTrackToLibrary(track) {
@@ -1557,6 +1861,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Escape closes modal
     if (e.key === 'Escape') {
       closeChatModal();
+      closeAuthModal();
     }
   });
 
@@ -1700,6 +2005,133 @@ document.addEventListener('DOMContentLoaded', () => {
     mobileNavChat.addEventListener('click', () => {
       closeMobileSidebar();
       openChatModal();
+    });
+  }
+
+  // ==========================================================================
+  // Authentication & Cloud Sync Event Handlers
+  // ==========================================================================
+  const btnHeaderLogin = document.getElementById('btn-header-login');
+  if (btnHeaderLogin) {
+    btnHeaderLogin.addEventListener('click', () => openAuthModal('login'));
+  }
+
+  const btnSidebarAuth = document.getElementById('btn-sidebar-auth');
+  if (btnSidebarAuth) {
+    btnSidebarAuth.addEventListener('click', () => {
+      if (State.authToken && State.currentUser) {
+        const popover = document.getElementById('user-dropdown-popover');
+        if (popover) {
+          popover.style.display = popover.style.display === 'block' ? 'none' : 'block';
+        }
+      } else {
+        openAuthModal('login');
+      }
+    });
+  }
+
+  const btnCloseAuth = document.getElementById('btn-close-auth-modal');
+  if (btnCloseAuth) {
+    btnCloseAuth.addEventListener('click', closeAuthModal);
+  }
+
+  const authOverlay = document.getElementById('auth-modal-overlay');
+  if (authOverlay) {
+    authOverlay.addEventListener('click', (e) => {
+      if (e.target === authOverlay) closeAuthModal();
+    });
+  }
+
+  const authTabLogin = document.getElementById('auth-tab-login');
+  if (authTabLogin) {
+    authTabLogin.addEventListener('click', () => openAuthModal('login'));
+  }
+
+  const authTabRegister = document.getElementById('auth-tab-register');
+  if (authTabRegister) {
+    authTabRegister.addEventListener('click', () => openAuthModal('register'));
+  }
+
+  const btnTogglePwd = document.getElementById('btn-toggle-pwd');
+  if (btnTogglePwd) {
+    btnTogglePwd.addEventListener('click', () => {
+      const pwdInput = document.getElementById('auth-password-input');
+      const confirmInput = document.getElementById('auth-password-confirm');
+      if (pwdInput) {
+        const isPwd = pwdInput.type === 'password';
+        pwdInput.type = isPwd ? 'text' : 'password';
+        if (confirmInput) confirmInput.type = isPwd ? 'text' : 'password';
+        btnTogglePwd.textContent = isPwd ? '🔒' : '👁';
+      }
+    });
+  }
+
+  const authForm = document.getElementById('auth-form');
+  if (authForm) {
+    authForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      handleAuthSubmit();
+    });
+  }
+
+  const btnAuthSubmit = document.getElementById('btn-auth-submit');
+  if (btnAuthSubmit) {
+    btnAuthSubmit.addEventListener('click', handleAuthSubmit);
+  }
+
+  const userAvatarBtn = document.getElementById('user-avatar-btn');
+  const userDropdownPopover = document.getElementById('user-dropdown-popover');
+  if (userAvatarBtn && userDropdownPopover) {
+    userAvatarBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      userDropdownPopover.style.display = userDropdownPopover.style.display === 'block' ? 'none' : 'block';
+    });
+  }
+
+  document.addEventListener('click', (e) => {
+    if (userDropdownPopover && userAvatarBtn) {
+      if (!userAvatarBtn.contains(e.target) && !userDropdownPopover.contains(e.target)) {
+        userDropdownPopover.style.display = 'none';
+      }
+    }
+  });
+
+  const btnUserSyncCloud = document.getElementById('btn-user-sync-cloud');
+  if (btnUserSyncCloud) {
+    btnUserSyncCloud.addEventListener('click', async () => {
+      if (userDropdownPopover) userDropdownPopover.style.display = 'none';
+      showBannerToast('Syncing songs with cloud database...');
+      await syncServerLibrary();
+      showBannerToast('Library synced with database!');
+    });
+  }
+
+  const btnUserLogout = document.getElementById('btn-user-logout');
+  if (btnUserLogout) {
+    btnUserLogout.addEventListener('click', () => {
+      if (userDropdownPopover) userDropdownPopover.style.display = 'none';
+      handleLogout(true);
+    });
+  }
+
+  // Check and update auth UI on startup
+  updateAuthUI();
+
+  // If user has stored token, verify with server /api/auth/me
+  if (State.authToken) {
+    fetch('/api/auth/me', {
+      headers: { 'Authorization': `Bearer ${State.authToken}` }
+    })
+    .then(r => r.ok ? r.json() : Promise.reject())
+    .then(data => {
+      if (data && data.user) {
+        State.currentUser = data.user;
+        localStorage.setItem(AUTH_USER_KEY, JSON.stringify(data.user));
+        updateAuthUI();
+      }
+    })
+    .catch(() => {
+      handleLogout(false);
     });
   }
 

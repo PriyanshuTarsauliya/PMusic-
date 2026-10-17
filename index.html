@@ -66,6 +66,18 @@
           <!-- Dynamically populated -->
         </div>
 
+        <!-- USER ACCOUNT STATUS BANNER IN SIDEBAR -->
+        <div class="sidebar-user-card" id="sidebar-user-card">
+          <div class="sidebar-user-left">
+            <div class="sidebar-user-avatar" id="sidebar-user-avatar">?</div>
+            <div class="sidebar-user-details">
+              <div class="sidebar-user-name" id="sidebar-user-name">Guest Mode</div>
+              <div class="sidebar-user-status" id="sidebar-user-status">Log in to save songs anywhere</div>
+            </div>
+          </div>
+          <button class="sidebar-auth-btn" id="btn-sidebar-auth">Log In</button>
+        </div>
+
         <button class="evidence-badge-btn" id="btn-toggle-evidence">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 10 10A10.011 10.011 0 0 0 12 2zm1 15h-2v-6h2zm0-8h-2V7h2z"/></svg>
           <span>View REA Evidence</span>
@@ -114,7 +126,32 @@
             <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:currentColor;"></span>
             <span>Live Music Engine</span>
           </button>
-          <div class="user-avatar-pill" title="Current User Profile: Ben 10">B</div>
+
+          <!-- AUTH CONTROLS -->
+          <div class="header-auth-section" id="header-auth-section">
+            <button class="auth-login-pill-btn" id="btn-header-login">Log In</button>
+            <div class="user-profile-menu-wrapper" id="user-profile-wrapper" style="display:none;">
+              <button class="user-avatar-pill logged-in" id="user-avatar-btn" title="Account Menu">
+                <span id="user-avatar-initial">U</span>
+              </button>
+              <div class="user-dropdown-popover" id="user-dropdown-popover" style="display:none;">
+                <div class="user-dropdown-header">
+                  <div class="user-dropdown-name" id="user-dropdown-username">User</div>
+                  <div class="user-dropdown-badge">● Synced in Database</div>
+                </div>
+                <div class="user-dropdown-divider"></div>
+                <button class="user-dropdown-item" id="btn-user-sync-cloud">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM17 13l-5 5-5-5h3V9h4v4h3z"/></svg>
+                  <span>Sync Cloud Library</span>
+                </button>
+                <button class="user-dropdown-item danger" id="btn-user-logout">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/></svg>
+                  <span>Log Out</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
         </div>
       </header>
 
@@ -509,6 +546,69 @@ Or write: 'Hey add Shape of You, Perfect, and Faded to my library'"></textarea>
           </div>
         </div>
 
+      </div>
+    </div>
+
+    <!-- USER LOGIN & REGISTRATION MODAL -->
+    <div class="auth-modal-overlay" id="auth-modal-overlay" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="auth-modal-title">
+      <div class="auth-modal-card">
+        
+        <!-- Modal Header -->
+        <div class="auth-modal-header">
+          <div class="auth-modal-brand">
+            <svg class="spotify-logo-icon" viewBox="0 0 24 24" style="width:26px; height:26px;">
+              <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.48.66.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
+            </svg>
+            <span class="auth-brand-text">PMusic Database Login</span>
+          </div>
+          <button class="chat-modal-close-btn" id="btn-close-auth-modal" aria-label="Close modal">&times;</button>
+        </div>
+
+        <div class="auth-modal-content">
+          <h2 class="auth-title" id="auth-modal-title">Log in to save songs anywhere</h2>
+          <p class="auth-subtitle" id="auth-modal-subtitle">Log in or create a free account with any username & password to access your songs on any phone, browser, or laptop.</p>
+
+          <!-- Auth Mode Tabs (Login vs Register) -->
+          <div class="auth-tabs-row">
+            <button class="auth-tab-btn active" id="auth-tab-login" data-mode="login">Log In</button>
+            <button class="auth-tab-btn" id="auth-tab-register" data-mode="register">Create New Account</button>
+          </div>
+
+          <!-- Error Alert Banner -->
+          <div class="auth-alert error" id="auth-alert" style="display:none;"></div>
+
+          <!-- Auth Form -->
+          <form class="auth-form" id="auth-form" onsubmit="return false;">
+            <div class="auth-field-group">
+              <label for="auth-username-input" class="auth-label">Username</label>
+              <input type="text" id="auth-username-input" class="auth-input" placeholder="e.g. priyanshu" required autocomplete="username">
+            </div>
+
+            <div class="auth-field-group">
+              <label for="auth-password-input" class="auth-label">Password</label>
+              <div class="auth-password-wrapper">
+                <input type="password" id="auth-password-input" class="auth-input" placeholder="Your password" required autocomplete="current-password">
+                <button type="button" class="auth-toggle-pwd-btn" id="btn-toggle-pwd" title="Show/Hide Password">👁</button>
+              </div>
+            </div>
+
+            <div class="auth-field-group" id="auth-confirm-group" style="display:none;">
+              <label for="auth-password-confirm" class="auth-label">Confirm Password</label>
+              <input type="password" id="auth-password-confirm" class="auth-input" placeholder="Repeat your password" autocomplete="new-password">
+            </div>
+
+            <button type="submit" class="auth-submit-btn" id="btn-auth-submit">
+              <span id="auth-submit-spinner" class="chat-spinner" style="display:none;"></span>
+              <span id="auth-submit-label">Log In</span>
+            </button>
+          </form>
+
+          <div class="auth-modal-footer-note">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/></svg>
+            <span>Cloud Database Sync: All your songs will be permanently saved to your account.</span>
+          </div>
+
+        </div>
       </div>
     </div>
 
