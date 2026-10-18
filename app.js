@@ -35,7 +35,7 @@ const CURATED_TRACKS = [
     albumYear: '2020',
     duration: 200,
     durationFormatted: '3:20',
-    artwork: 'https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=400&auto=format&fit=crop&q=80',
+    artwork: 'https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/a4/bc/58/a4bc5824-2c67-6869-79a0-2f10b28498f3/20UMGIM10357.rgb.jpg/400x400bb.jpg',
     previewUrl: 'https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview116/v4/bc/c7/24/bcc724f1-6a2c-7357-61c3-caef795610ea/mzaf_10793132646399080649.plus.aac.p.m4a',
     youtubeId: 'fHI8X4OXluQ',
     popularity: 98
@@ -48,8 +48,8 @@ const CURATED_TRACKS = [
     albumYear: '2016',
     duration: 230,
     durationFormatted: '3:50',
-    artwork: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=400&auto=format&fit=crop&q=80',
-    previewUrl: 'https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview125/v4/4a/12/35/4a12356c-03d1-dcf3-27dc-473d062828b1/mzaf_15939221295964893883.plus.aac.p.m4a',
+    artwork: 'https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/91/9f/bf/919fbfec-3044-8fa2-6800-4b2a47290f84/16UMGIM60447.rgb.jpg/400x400bb.jpg',
+    previewUrl: 'https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/11/71/d6/1171d6ad-3c96-e027-2af6-58028426588c/mzaf_15137631797407745471.plus.aac.p.m4a',
     youtubeId: '34Na4j8AVgA',
     popularity: 95
   },
@@ -61,8 +61,8 @@ const CURATED_TRACKS = [
     albumYear: '2019',
     duration: 178,
     durationFormatted: '2:58',
-    artwork: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=400&auto=format&fit=crop&q=80',
-    previewUrl: 'https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview116/v4/64/0e/b5/640eb51b-5136-dcf0-fdf8-dc9bb1a14138/mzaf_9043750860580979455.plus.aac.p.m4a',
+    artwork: 'https://is1-ssl.mzstatic.com/image/thumb/Music125/v4/49/3d/ab/493dab54-f920-9043-6181-80993b8116c9/19UMGIM53909.rgb.jpg/400x400bb.jpg',
+    previewUrl: 'https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/44/af/81/44af8168-9609-1b85-5048-ada08dceacf3/mzaf_1341699644335558812.plus.aac.p.m4a',
     youtubeId: 'ic8j13piAhQ',
     popularity: 97
   },
@@ -72,12 +72,12 @@ const CURATED_TRACKS = [
     artist: 'Queen',
     album: 'A Night at the Opera',
     albumYear: '1975',
-    duration: 354,
-    durationFormatted: '5:54',
-    artwork: 'https://images.unsplash.com/photo-1498038432885-c6f3f1b912ee?w=400&auto=format&fit=crop&q=80',
-    previewUrl: 'https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview115/v4/8e/3c/64/8e3c647b-7b3b-82a1-026c-d29b1397b985/mzaf_16480746654271887375.plus.aac.p.m4a',
+    duration: 355,
+    durationFormatted: '5:55',
+    artwork: 'https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/8b/0a/ea/8b0aea60-6f4a-195b-5958-cdf459c2333b/602527644271.jpg/400x400bb.jpg',
+    previewUrl: 'https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/17/fc/1e/17fc1eba-946d-84a9-710b-a0e88ea64209/mzaf_3049006317693088799.plus.aac.p.m4a',
     youtubeId: 'fJ9rUzIMcZQ',
-    popularity: 92
+    popularity: 98
   },
   {
     id: 'track-5',
@@ -85,10 +85,10 @@ const CURATED_TRACKS = [
     artist: 'Daft Punk ft. Pharrell Williams',
     album: 'Random Access Memories',
     albumYear: '2013',
-    duration: 248,
-    durationFormatted: '4:08',
-    artwork: 'https://images.unsplash.com/photo-1516873240891-4bf014598ab4?w=400&auto=format&fit=crop&q=80',
-    previewUrl: 'https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview115/v4/c3/09/20/c30920f7-5421-2e67-d86b-4eef11c97a9f/mzaf_17734067208947690623.plus.aac.p.m4a',
+    duration: 370,
+    durationFormatted: '6:10',
+    artwork: 'https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/e8/43/5f/e8435ffa-b6b9-b171-40ab-4ff3959ab661/886443919266.jpg/400x400bb.jpg',
+    previewUrl: 'https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/57/a5/85/57a585aa-f1bc-7619-881b-f8a04a5541d5/mzaf_6906185026678279401.plus.aac.p.m4a',
     youtubeId: '5NV6Rdv1a3w',
     popularity: 91
   },
@@ -98,12 +98,142 @@ const CURATED_TRACKS = [
     artist: 'Billie Eilish',
     album: 'HIT ME HARD AND SOFT',
     albumYear: '2024',
-    duration: 196,
-    durationFormatted: '3:16',
-    artwork: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=400&auto=format&fit=crop&q=80',
-    previewUrl: 'https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview126/v4/d9/0f/5d/d90f5d52-9b2f-78df-a7fe-d0ec2ff73c24/mzaf_16773352741513222384.plus.aac.p.m4a',
+    duration: 210,
+    durationFormatted: '3:30',
+    artwork: 'https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/92/9f/69/929f69f1-9977-3a44-d674-11f70c852d1b/24UMGIM36186.rgb.jpg/400x400bb.jpg',
+    previewUrl: 'https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/34/31/d3/3431d34e-847f-5d66-df83-0bce688d997e/mzaf_18106743962423782018.plus.aac.p.m4a',
     youtubeId: 'V9PVRfjEBTI',
     popularity: 99
+  },
+  {
+    id: 'track-7',
+    name: 'Lose Yourself',
+    artist: 'Eminem',
+    album: '8 Mile',
+    albumYear: '2002',
+    duration: 322,
+    durationFormatted: '5:22',
+    artwork: 'https://is1-ssl.mzstatic.com/image/thumb/Music125/v4/08/23/fc/0823fcd9-cb44-695b-32bf-b3bf51d9f800/00606949351229.rgb.jpg/400x400bb.jpg',
+    previewUrl: 'https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/13/5a/61/135a6154-8ca2-0523-1fa2-f4ac0ea9e1e7/mzaf_13242749689945681184.plus.aac.p.m4a',
+    youtubeId: '_Yhyp-_hX2s',
+    popularity: 98
+  },
+  {
+    id: 'track-8',
+    name: 'Shape of You',
+    artist: 'Ed Sheeran',
+    album: '÷ (Deluxe)',
+    albumYear: '2017',
+    duration: 234,
+    durationFormatted: '3:54',
+    artwork: 'https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/15/e6/e8/15e6e8a4-4190-6a8b-86c3-ab4a51b88288/190295851286.jpg/400x400bb.jpg',
+    previewUrl: 'https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/44/c7/4f/44c74f0d-72dc-6143-d4d0-ba14d661ca0d/mzaf_9566898362556366703.plus.aac.p.m4a',
+    youtubeId: 'JGwWNGJdvx8',
+    popularity: 95
+  },
+  {
+    id: 'track-9',
+    name: 'Levitating',
+    artist: 'Dua Lipa',
+    album: 'Future Nostalgia',
+    albumYear: '2020',
+    duration: 204,
+    durationFormatted: '3:24',
+    artwork: 'https://is1-ssl.mzstatic.com/image/thumb/Music116/v4/6c/11/d6/6c11d681-aa3a-d59e-4c2e-f77e181026ab/190295092665.jpg/400x400bb.jpg',
+    previewUrl: 'https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/59/dc/4d/59dc4dda-93ff-8f1c-c536-f005f6ea6af5/mzaf_3066686759813252385.plus.aac.p.m4a',
+    youtubeId: 'TUVcZfQe-Kw',
+    popularity: 97
+  },
+  {
+    id: 'track-10',
+    name: 'Sunflower',
+    artist: 'Post Malone & Swae Lee',
+    album: 'Spider-Man: Into the Spider-Verse',
+    albumYear: '2018',
+    duration: 158,
+    durationFormatted: '2:38',
+    artwork: 'https://is1-ssl.mzstatic.com/image/thumb/Music125/v4/4b/30/2c/4b302cb6-7a14-5464-4e97-0577e9d0be49/18UMGIM82277.rgb.jpg/400x400bb.jpg',
+    previewUrl: 'https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/98/f0/d6/98f0d67e-f8bf-762d-cac7-1c6b3b6b35dd/mzaf_4543283896248560946.plus.aac.p.m4a',
+    youtubeId: 'ApXoWvfEYVU',
+    popularity: 97
+  },
+  {
+    id: 'track-11',
+    name: 'As It Was',
+    artist: 'Harry Styles',
+    album: "Harry's House",
+    albumYear: '2022',
+    duration: 167,
+    durationFormatted: '2:47',
+    artwork: 'https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/2a/19/fb/2a19fb85-2f70-9e44-f2a9-82abe679b88e/886449990061.jpg/400x400bb.jpg',
+    previewUrl: 'https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/67/10/16/67101606-3869-ca44-6c03-e13d6322cb51/mzaf_1135399237022217274.plus.aac.p.m4a',
+    youtubeId: 'H5v3kku4y6Q',
+    popularity: 94
+  },
+  {
+    id: 'track-12',
+    name: 'Flowers',
+    artist: 'Miley Cyrus',
+    album: 'Endless Summer Vacation',
+    albumYear: '2023',
+    duration: 201,
+    durationFormatted: '3:21',
+    artwork: 'https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/8c/67/ff/8c67ff91-31c3-3fef-1884-ce3ec89f3af4/196589946874.jpg/400x400bb.jpg',
+    previewUrl: 'https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/68/9e/f7/689ef7fe-14fe-a846-c87f-7d3b2d6344b1/mzaf_4167137058064023087.plus.aac.p.m4a',
+    youtubeId: 'G7KNmW9a75Y',
+    popularity: 94
+  },
+  {
+    id: 'track-13',
+    name: 'Believer',
+    artist: 'Imagine Dragons',
+    album: 'Evolve',
+    albumYear: '2017',
+    duration: 204,
+    durationFormatted: '3:24',
+    artwork: 'https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/11/7a/b8/117ab805-6811-8929-18b9-0fad7baf0c25/17UMGIM98210.rgb.jpg/400x400bb.jpg',
+    previewUrl: 'https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/c0/3f/36/c03f367a-b66b-fd0a-a54c-30f8250c4410/mzaf_12768434238801682952.plus.aac.p.m4a',
+    youtubeId: '7wtfhZwyrcc',
+    popularity: 93
+  },
+  {
+    id: 'track-14',
+    name: 'Someone You Loved',
+    artist: 'Lewis Capaldi',
+    album: 'Divinely Uninspired To A Hellish Extent',
+    albumYear: '2018',
+    duration: 182,
+    durationFormatted: '3:02',
+    artwork: 'https://is1-ssl.mzstatic.com/image/thumb/Music116/v4/92/d7/8f/92d78fb1-df3d-049e-c81d-7022808b151f/19UMGIM02973.rgb.jpg/400x400bb.jpg',
+    previewUrl: 'https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/e5/c8/17/e5c817e2-7830-091f-8686-d6276d5beaeb/mzaf_5586826958480073790.plus.aac.p.m4a',
+    youtubeId: 'zABLecsR5UE',
+    popularity: 93
+  },
+  {
+    id: 'track-15',
+    name: 'Counting Stars',
+    artist: 'OneRepublic',
+    album: 'Native',
+    albumYear: '2013',
+    duration: 257,
+    durationFormatted: '4:17',
+    artwork: 'https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/25/46/a7/2546a71a-b2bb-b4c9-4c52-a4daa3ae23ca/13UMGIM15076.rgb.jpg/400x400bb.jpg',
+    previewUrl: 'https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/b0/db/7f/b0db7fbe-f8ff-1f67-fe72-ca8185ffbca2/mzaf_15298650366584767800.plus.aac.p.m4a',
+    youtubeId: 'hT_nvWreIhg',
+    popularity: 92
+  },
+  {
+    id: 'track-16',
+    name: 'Viva La Vida',
+    artist: 'Coldplay',
+    album: 'Viva La Vida',
+    albumYear: '2008',
+    duration: 241,
+    durationFormatted: '4:01',
+    artwork: 'https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/52/aa/85/52aa851f-15b7-6322-f91f-df84b15b7b19/190295978044.jpg/400x400bb.jpg',
+    previewUrl: 'https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/a3/30/8e/a3308eed-d8b7-e0b3-f09d-5e1b0f4d660a/mzaf_8517946447501075134.plus.aac.p.m4a',
+    youtubeId: 'dvgZkm1xWPE',
+    popularity: 94
   }
 ];
 
@@ -186,6 +316,7 @@ const State = {
   requestId: generateId('req'),
   currentTrack: CURATED_TRACKS[0],
   isPlaying: false,
+  activeEngine: 'none', // 'none' | 'youtube' | 'audio'
   playbackMode: 'full', // 'full' (YouTube streaming) or 'preview'
   likedTracks: new Set(loadLikedTrackIds()),
   libraryTracks: loadUserLibrary(),
@@ -202,7 +333,8 @@ const State = {
     artists: [],
     albums: [],
     playlists: []
-  }
+  },
+  overviewShowAllSongs: false
 };
 
 function generateId(prefix) {
@@ -666,6 +798,10 @@ function renderSidebarLibrary() {
         removeTrackFromLibrary(track.id);
         return;
       }
+      if (State.currentTrack && State.currentTrack.id === track.id) {
+        togglePlayPause();
+        return;
+      }
       playFullTrack(track);
       State.queue = [...State.libraryTracks];
       State.queueIndex = State.queue.findIndex(t => t.id === track.id);
@@ -996,18 +1132,27 @@ function onYtReady() {
 function onYtStateChange(event) {
   // YT.PlayerState: -1 (unstarted), 0 (ended), 1 (playing), 2 (paused), 3 (buffering), 5 (cued)
   if (event.data === YT.PlayerState.PLAYING) {
+    State.activeEngine = 'youtube';
+    const audio = document.getElementById('audio-engine');
+    if (audio && !audio.paused) {
+      audio.pause();
+    }
     State.isPlaying = true;
     updatePlayerUI();
     startYtProgress();
   } else if (event.data === YT.PlayerState.PAUSED) {
-    State.isPlaying = false;
-    updatePlayerUI();
-    stopYtProgress();
+    if (State.activeEngine === 'youtube') {
+      State.isPlaying = false;
+      updatePlayerUI();
+      stopYtProgress();
+    }
   } else if (event.data === YT.PlayerState.ENDED) {
-    // CONTINUOUS AUTOPLAY: Next song in queue automatically plays!
-    console.log('Song ended, auto-advancing to next song in queue...');
-    logUbiEvent('hitTrackEnded', State.currentTrack.name);
-    playNextTrack();
+    if (State.activeEngine === 'youtube') {
+      // CONTINUOUS AUTOPLAY: Next song in queue automatically plays!
+      console.log('YouTube track ended, auto-advancing to next song in queue...');
+      logUbiEvent('hitTrackEnded', State.currentTrack ? State.currentTrack.name : 'track');
+      playNextTrack();
+    }
   }
 }
 
@@ -1015,9 +1160,13 @@ function onYtError(e) {
   console.warn('YouTube Player error code:', e.data, 'Falling back to preview audio.');
   // Fallback to HTML5 audio if YouTube has embed restriction
   const audio = document.getElementById('audio-engine');
-  if (audio && State.currentTrack.previewUrl) {
+  if (audio && State.currentTrack && State.currentTrack.previewUrl) {
+    State.activeEngine = 'audio';
     audio.src = State.currentTrack.previewUrl;
-    audio.play();
+    audio.play().catch(err => console.warn('Preview fallback error:', err));
+  } else {
+    State.isPlaying = false;
+    updatePlayerUI();
   }
 }
 
@@ -1025,6 +1174,18 @@ let isSeekingTimeline = false;
 let isSeekingVolume = false;
 
 function getPlaybackProgress() {
+  if (State.activeEngine === 'youtube' && ytPlayer && ytReady && typeof ytPlayer.getCurrentTime === 'function') {
+    const cur = ytPlayer.getCurrentTime();
+    const dur = ytPlayer.getDuration() || (State.currentTrack ? State.currentTrack.duration : 0) || 180;
+    if (!isNaN(cur) && dur > 0) return { current: cur, duration: dur };
+  }
+  if (State.activeEngine === 'audio') {
+    const audio = document.getElementById('audio-engine');
+    if (audio && audio.duration && !isNaN(audio.duration) && audio.duration > 0) {
+      return { current: audio.currentTime, duration: audio.duration };
+    }
+  }
+  // Generic fallback if engine wasn't explicitly tagged
   if (ytPlayer && ytReady && typeof ytPlayer.getCurrentTime === 'function') {
     const cur = ytPlayer.getCurrentTime();
     const dur = ytPlayer.getDuration() || (State.currentTrack ? State.currentTrack.duration : 0) || 180;
@@ -1065,15 +1226,47 @@ function stopYtProgress() {
 
 // Resolve full track to YouTube stream & play
 async function playFullTrack(track) {
+  if (!track) return;
   State.currentTrack = track;
   State.isPlaying = true;
   updatePlayerUI();
   logUbiEvent('hitPlayFullSong', `${track.name} by ${track.artist}`);
 
-  // 1. If we already know the video ID
+  const audio = document.getElementById('audio-engine');
+
+  // 1. If we already know the video ID and YouTube player is ready
   let videoId = track.youtubeId;
 
-  // 2. Otherwise resolve via our server
+  if (videoId && ytPlayer && ytReady && typeof ytPlayer.loadVideoById === 'function') {
+    // Stop HTML5 audio to prevent overlapping playback
+    if (audio) {
+      audio.pause();
+      audio.currentTime = 0;
+    }
+    State.activeEngine = 'youtube';
+    try {
+      ytPlayer.loadVideoById(videoId);
+      ytPlayer.playVideo();
+      return;
+    } catch (err) {
+      console.warn('YouTube load/play error, attempting audio fallback:', err);
+    }
+  }
+
+  // 2. Immediate audio fallback or preview to preserve browser user gesture
+  if (track.previewUrl && audio) {
+    // Stop YouTube
+    if (ytPlayer && ytReady && typeof ytPlayer.pauseVideo === 'function') {
+      try { ytPlayer.pauseVideo(); } catch (_) {}
+    }
+    State.activeEngine = 'audio';
+    audio.src = track.previewUrl;
+    audio.play().catch(err => {
+      console.warn('HTML5 audio play blocked by browser gesture policy:', err);
+    });
+  }
+
+  // 3. If no videoId yet, resolve via server asynchronously
   if (!videoId) {
     try {
       const q = `${track.artist} ${track.name}`;
@@ -1083,6 +1276,19 @@ async function playFullTrack(track) {
         if (data.videoId) {
           videoId = data.videoId;
           track.youtubeId = videoId;
+
+          // If track had no previewUrl or if YouTube was preferred and track is still active
+          if (!track.previewUrl && State.currentTrack && State.currentTrack.id === track.id) {
+            if (audio) {
+              audio.pause();
+              audio.currentTime = 0;
+            }
+            if (ytPlayer && ytReady && typeof ytPlayer.loadVideoById === 'function') {
+              State.activeEngine = 'youtube';
+              ytPlayer.loadVideoById(videoId);
+              ytPlayer.playVideo();
+            }
+          }
         }
       }
     } catch (e) {
@@ -1090,33 +1296,79 @@ async function playFullTrack(track) {
     }
   }
 
-  // 3. Play through YouTube Player
-  if (videoId && ytPlayer && ytReady && ytPlayer.loadVideoById) {
-    ytPlayer.loadVideoById(videoId);
-    ytPlayer.playVideo();
-  } else {
-    // Fallback to HTML5 audio preview
-    const audio = document.getElementById('audio-engine');
-    if (audio && track.previewUrl) {
-      audio.src = track.previewUrl;
-      audio.play();
-    }
+  // 4. Final fallback check if nothing could play
+  if (!videoId && !track.previewUrl) {
+    console.warn('No playable source found for track:', track.name);
+    State.isPlaying = false;
+    updatePlayerUI();
   }
 }
 
 function togglePlayPause() {
-  if (!State.currentTrack) return;
-  State.isPlaying = !State.isPlaying;
+  if (!State.currentTrack) {
+    State.currentTrack = CURATED_TRACKS[0];
+  }
+  const audio = document.getElementById('audio-engine');
 
-  if (ytPlayer && ytReady && ytPlayer.getPlayerState) {
-    if (State.isPlaying) ytPlayer.playVideo();
-    else ytPlayer.pauseVideo();
-  } else {
-    const audio = document.getElementById('audio-engine');
-    if (audio && audio.src) {
-      if (State.isPlaying) audio.play();
-      else audio.pause();
+  // If no audio engine has started yet (e.g. user clicks play button on fresh page load)
+  if (State.activeEngine === 'none') {
+    playFullTrack(State.currentTrack);
+    return;
+  }
+
+  // If current active engine is YouTube
+  if (State.activeEngine === 'youtube') {
+    if (ytPlayer && ytReady && typeof ytPlayer.getPlayerState === 'function') {
+      const pState = ytPlayer.getPlayerState();
+      // If currently playing (1) or buffering (3)
+      if (pState === 1 || pState === 3 || State.isPlaying) {
+        ytPlayer.pauseVideo();
+        State.isPlaying = false;
+      } else {
+        ytPlayer.playVideo();
+        State.isPlaying = true;
+      }
+    } else {
+      // YouTube unavailable, fallback to audio preview
+      if (audio && State.currentTrack.previewUrl) {
+        State.activeEngine = 'audio';
+        audio.src = State.currentTrack.previewUrl;
+        audio.play().then(() => {
+          State.isPlaying = true;
+          updatePlayerUI();
+        }).catch(err => {
+          console.warn('Audio play error:', err);
+          State.isPlaying = false;
+          updatePlayerUI();
+        });
+        return;
+      }
     }
+  } else if (State.activeEngine === 'audio') {
+    // Current active engine is HTML5 audio
+    if (audio) {
+      if (audio.paused || !State.isPlaying) {
+        if (!audio.src && State.currentTrack.previewUrl) {
+          audio.src = State.currentTrack.previewUrl;
+        }
+        audio.play().then(() => {
+          State.isPlaying = true;
+          updatePlayerUI();
+        }).catch(err => {
+          console.warn('Audio resume blocked:', err);
+          State.isPlaying = false;
+          updatePlayerUI();
+        });
+        return;
+      } else {
+        audio.pause();
+        State.isPlaying = false;
+      }
+    }
+  } else {
+    // Fallback: initiate track playback
+    playFullTrack(State.currentTrack);
+    return;
   }
 
   updatePlayerUI();
@@ -1180,12 +1432,23 @@ function updatePlayerUI() {
   const waveBars = document.getElementById('player-wave-bars');
   if (waveBars) waveBars.style.display = State.isPlaying ? 'inline-flex' : 'none';
 
-  // Highlight active row in search lists
+  // Highlight active row in search lists and sync play/pause icon in hover overlay
   document.querySelectorAll('.track-row, .full-table-row').forEach(row => {
     const title = row.querySelector('.track-title, .table-song-title')?.textContent;
     const isCurrent = title === track.name;
     row.classList.toggle('active', isCurrent);
+    const playOverlayPath = row.querySelector('.track-thumb-overlay-play svg path');
+    if (playOverlayPath) {
+      playOverlayPath.setAttribute('d', isCurrent && State.isPlaying ? 'M6 19h4V5H6v14zm8-14v14h4V5h-4z' : 'M8 5v14l11-7z');
+    }
   });
+
+  // Top result card floating play button icon
+  const topResultPlayPath = document.querySelector('#top-result-card .card-floating-play-btn svg path');
+  if (topResultPlayPath) {
+    const isTopCurrent = State.currentSearchResults.topResult && State.currentTrack && (State.currentSearchResults.topResult.id === State.currentTrack.id);
+    topResultPlayPath.setAttribute('d', isTopCurrent && State.isPlaying ? 'M6 19h4V5H6v14zm8-14v14h4V5h-4z' : 'M8 5v14l11-7z');
+  }
 
   // Android lockscreen & notification media controls
   updateAndroidMediaSession();
@@ -1235,6 +1498,10 @@ function renderQueueList() {
       <div style="font-size:0.75rem; color:var(--spotify-subdued);">${track.durationFormatted || '3:20'}</div>
     `;
     row.addEventListener('click', () => {
+      if (State.currentTrack && State.currentTrack.id === track.id) {
+        togglePlayPause();
+        return;
+      }
       State.queueIndex = idx;
       playFullTrack(track);
       renderQueueList();
@@ -1285,7 +1552,7 @@ async function executeSearch(query) {
 
   if (State.useLiveSearch) {
     try {
-      const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=music&entity=song,album,musicArtist&limit=30`);
+      const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=music&entity=song,album,musicArtist&limit=100`);
       if (res.ok) {
         const data = await res.json();
         (data.results || []).forEach(item => {
@@ -1403,6 +1670,55 @@ function renderBrowseAll() {
   });
 
   renderRecentSearches();
+  renderFeaturedSongs();
+}
+
+function renderFeaturedSongs() {
+  const container = document.getElementById('featured-songs-list');
+  if (!container) return;
+  container.innerHTML = '';
+
+  CURATED_TRACKS.forEach((track) => {
+    const isCurrent = State.currentTrack && State.currentTrack.id === track.id;
+    const isLiked = State.likedTracks.has(track.id);
+    const row = document.createElement('div');
+    row.className = `track-row ${isCurrent ? 'active' : ''}`;
+    row.innerHTML = `
+      <div class="track-row-col-thumb">
+        <img class="track-thumb-img" src="${track.artwork}" alt="${track.name}">
+        <div class="track-thumb-overlay-play">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+            <path d="${isCurrent && State.isPlaying ? 'M6 19h4V5H6v14zm8-14v14h4V5h-4z' : 'M8 5v14l11-7z'}"/>
+          </svg>
+        </div>
+      </div>
+      <div class="track-row-col-main">
+        <div class="track-title">${track.name}</div>
+        <div class="track-subtitle">${track.artist} • ${track.album}</div>
+      </div>
+      <div class="track-row-col-end">
+        <button class="track-heart-btn ${isLiked ? 'liked' : ''}" title="Save to Your Library">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+        </button>
+        <span class="track-duration-text">${track.durationFormatted}</span>
+      </div>
+    `;
+
+    row.addEventListener('click', (e) => {
+      if (e.target.closest('.track-heart-btn')) {
+        toggleLikeTrack(track.id);
+        return;
+      }
+      if (State.currentTrack && State.currentTrack.id === track.id) {
+        togglePlayPause();
+        return;
+      }
+      playFullTrack(track);
+      addRecentItem(track);
+    });
+
+    container.appendChild(row);
+  });
 }
 
 function renderRecentSearches() {
@@ -1446,7 +1762,11 @@ function renderRecentSearches() {
 
     card.addEventListener('click', () => {
       if (!isArtist) {
-        playFullTrack(item);
+        if (State.currentTrack && State.currentTrack.id === item.id) {
+          togglePlayPause();
+        } else {
+          playFullTrack(item);
+        }
       } else {
         const input = document.getElementById('search-input');
         input.value = title;
@@ -1487,7 +1807,11 @@ function renderOverviewResults() {
     topResultCard.onclick = () => {
       addRecentItem(topResult);
       if (!isArtist) {
-        playFullTrack(topResult);
+        if (State.currentTrack && State.currentTrack.id === topResult.id) {
+          togglePlayPause();
+        } else {
+          playFullTrack(topResult);
+        }
       } else {
         setCategoryFilter('artists');
       }
@@ -1495,11 +1819,12 @@ function renderOverviewResults() {
     };
   }
 
-  // 2. Songs Mini Tracklist (Top 4)
+  // 2. Songs Tracklist (Top songs with expand toggle to view all songs)
   const songsList = document.getElementById('top-songs-list');
   if (songsList) {
     songsList.innerHTML = '';
-    tracks.slice(0, 4).forEach((track) => {
+    const songsToRender = State.overviewShowAllSongs ? tracks : tracks.slice(0, 6);
+    songsToRender.forEach((track) => {
       const isCurrent = State.currentTrack && State.currentTrack.id === track.id;
       const isLiked = State.likedTracks.has(track.id);
       const row = document.createElement('div');
@@ -1515,7 +1840,7 @@ function renderOverviewResults() {
         </div>
         <div class="track-row-col-main">
           <div class="track-title">${track.name}</div>
-          <div class="track-subtitle">${track.artist}</div>
+          <div class="track-subtitle">${track.artist} • ${track.album}</div>
         </div>
         <div class="track-row-col-end">
           <button class="track-heart-btn ${isLiked ? 'liked' : ''}" title="Save to Your Library">
@@ -1530,12 +1855,43 @@ function renderOverviewResults() {
           toggleLikeTrack(track.id);
           return;
         }
+        if (State.currentTrack && State.currentTrack.id === track.id) {
+          togglePlayPause();
+          return;
+        }
         playFullTrack(track);
         addRecentItem(track);
       });
 
       songsList.appendChild(row);
     });
+
+    if (tracks.length > 6) {
+      const toggleRow = document.createElement('div');
+      toggleRow.className = 'songs-expand-row';
+      toggleRow.style.cssText = 'padding: 10px 12px; display: flex; align-items: center; justify-content: space-between; border-top: 1px solid rgba(255,255,255,0.06); margin-top: 6px;';
+      toggleRow.innerHTML = `
+        <button class="songs-toggle-all-btn" style="background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12); color: var(--spotify-white); font-size: 0.82rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 8px; padding: 6px 14px; border-radius: 500px; transition: background 0.2s ease;">
+          <span>${State.overviewShowAllSongs ? 'Show Top 6 Only' : `Show All ${tracks.length} Songs`}</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="transform: ${State.overviewShowAllSongs ? 'rotate(180deg)' : 'rotate(0)'}; transition: transform 0.2s ease;">
+            <path d="M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/>
+          </svg>
+        </button>
+        <button class="songs-view-drilldown-btn" style="background: none; border: none; color: var(--spotify-green); font-size: 0.82rem; font-weight: 700; cursor: pointer; padding: 4px 8px;">
+          View Full Table &rarr;
+        </button>
+      `;
+      toggleRow.querySelector('.songs-toggle-all-btn').onclick = (e) => {
+        e.stopPropagation();
+        State.overviewShowAllSongs = !State.overviewShowAllSongs;
+        renderOverviewResults();
+      };
+      toggleRow.querySelector('.songs-view-drilldown-btn').onclick = (e) => {
+        e.stopPropagation();
+        setCategoryFilter('tracks');
+      };
+      songsList.appendChild(toggleRow);
+    }
   }
 
   // 3. Shelves
@@ -1603,7 +1959,8 @@ function renderDrilldownResults(category) {
   const { tracks, artists, albums, playlists } = State.currentSearchResults;
 
   if (category === 'tracks') {
-    titleElem.textContent = 'Songs';
+    const listToRender = tracks.length > 0 ? tracks : CURATED_TRACKS;
+    titleElem.textContent = `Songs (${listToRender.length})`;
     const table = document.createElement('table');
     table.className = 'full-tracklist-table';
     table.innerHTML = `
@@ -1619,7 +1976,7 @@ function renderDrilldownResults(category) {
     `;
     const tbody = table.querySelector('tbody');
 
-    tracks.forEach((track, index) => {
+    listToRender.forEach((track, index) => {
       const isCurrent = State.currentTrack && State.currentTrack.id === track.id;
       const row = document.createElement('tr');
       row.className = `full-table-row ${isCurrent ? 'active' : ''}`;
@@ -1639,6 +1996,10 @@ function renderDrilldownResults(category) {
       `;
 
       row.addEventListener('click', () => {
+        if (State.currentTrack && State.currentTrack.id === track.id) {
+          togglePlayPause();
+          return;
+        }
         playFullTrack(track);
         addRecentItem(track);
       });
@@ -1815,12 +2176,21 @@ document.addEventListener('DOMContentLoaded', () => {
     const dur = progress ? progress.duration : (State.currentTrack ? State.currentTrack.duration : 180);
     const targetTime = pos * dur;
 
-    if (ytPlayer && ytReady && typeof ytPlayer.seekTo === 'function') {
+    if (State.activeEngine === 'youtube' && ytPlayer && ytReady && typeof ytPlayer.seekTo === 'function') {
       ytPlayer.seekTo(targetTime, true);
-    }
-    const audio = document.getElementById('audio-engine');
-    if (audio && audio.duration) {
-      audio.currentTime = targetTime;
+    } else if (State.activeEngine === 'audio') {
+      const audio = document.getElementById('audio-engine');
+      if (audio && audio.duration) {
+        audio.currentTime = targetTime;
+      }
+    } else {
+      if (ytPlayer && ytReady && typeof ytPlayer.seekTo === 'function') {
+        ytPlayer.seekTo(targetTime, true);
+      }
+      const audio = document.getElementById('audio-engine');
+      if (audio && audio.duration) {
+        audio.currentTime = targetTime;
+      }
     }
     logUbiEvent('hitSeekTrack', `${formatDuration(targetTime)} (${Math.round(pos * 100)}%)`);
   }
@@ -1915,20 +2285,24 @@ document.addEventListener('DOMContentLoaded', () => {
   const audioEngineEl = document.getElementById('audio-engine');
   if (audioEngineEl) {
     audioEngineEl.addEventListener('play', () => {
+      State.activeEngine = 'audio';
       State.isPlaying = true;
       updatePlayerUI();
       startYtProgress();
     });
     audioEngineEl.addEventListener('pause', () => {
-      if (!ytPlayer || !ytPlayer.getPlayerState || ytPlayer.getPlayerState() !== 1) {
+      if (State.activeEngine === 'audio') {
         State.isPlaying = false;
         updatePlayerUI();
         stopYtProgress();
       }
     });
     audioEngineEl.addEventListener('ended', () => {
-      console.log('Audio preview ended, advancing to next song...');
-      playNextTrack();
+      if (State.activeEngine === 'audio') {
+        console.log('Audio preview ended, advancing to next song...');
+        logUbiEvent('hitTrackEnded', State.currentTrack ? State.currentTrack.name : 'track');
+        playNextTrack();
+      }
     });
   }
 
