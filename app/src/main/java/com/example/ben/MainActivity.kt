@@ -568,6 +568,9 @@ class MainActivity : AppCompatActivity(), PlaybackManager.PlaybackListener {
         if (initialSong != null) {
             binding.tvPlayerTitle.text = initialSong.title
             binding.tvPlayerArtist.text = initialSong.artist
+            binding.tvPlayerDuration.text = "• 0:00 / ${initialSong.durationFormatted}"
+            binding.playerSeekBar.max = initialSong.getDurationMs()
+            binding.playerSeekBar.progress = 0
             ImageLoader.load(initialSong.artworkUrl, binding.imgPlayerThumb)
         }
 
@@ -609,6 +612,9 @@ class MainActivity : AppCompatActivity(), PlaybackManager.PlaybackListener {
     override fun onSongChanged(song: Song) {
         binding.tvPlayerTitle.text = song.title
         binding.tvPlayerArtist.text = song.artist
+        binding.tvPlayerDuration.text = "• 0:00 / ${song.durationFormatted}"
+        binding.playerSeekBar.max = song.getDurationMs()
+        binding.playerSeekBar.progress = 0
         ImageLoader.load(song.artworkUrl, binding.imgPlayerThumb)
         @Suppress("NotifyDataSetChanged")
         songAdapter.notifyDataSetChanged()
@@ -625,13 +631,27 @@ class MainActivity : AppCompatActivity(), PlaybackManager.PlaybackListener {
         binding.btnPlayLikedSongs.setImageResource(if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play)
     }
 
+    private fun formatProgressTime(millis: Int): String {
+        val totalSeconds = (millis / 1000).coerceAtLeast(0)
+        val minutes = totalSeconds / 60
+        val seconds = totalSeconds % 60
+        return String.format(java.util.Locale.US, "%d:%02d", minutes, seconds)
+    }
+
     override fun onProgressUpdate(currentPositionMs: Int, totalDurationMs: Int) {
-        if (!isTrackingSeekBar) {
-            binding.playerSeekBar.max = totalDurationMs
+        val song = PlaybackManager.currentSong
+        val fullDuration = if (totalDurationMs > 30000) totalDurationMs else (song?.getDurationMs() ?: totalDurationMs)
+        val curStr = formatProgressTime(currentPositionMs)
+        val durStr = song?.durationFormatted ?: formatProgressTime(fullDuration)
+
+        binding.tvPlayerDuration.text = "• $curStr / $durStr"
+
+        if (!isTrackingSeekBar && fullDuration > 0) {
+            binding.playerSeekBar.max = fullDuration
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
-                binding.playerSeekBar.setProgress(currentPositionMs, true)
+                binding.playerSeekBar.setProgress(currentPositionMs.coerceIn(0, fullDuration), true)
             } else {
-                binding.playerSeekBar.progress = currentPositionMs
+                binding.playerSeekBar.progress = currentPositionMs.coerceIn(0, fullDuration)
             }
         }
     }

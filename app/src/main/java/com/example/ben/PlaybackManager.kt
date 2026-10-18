@@ -8,7 +8,9 @@ import android.os.Looper
 import android.util.Log
 import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
+import android.webkit.WebResourceRequest
 import android.webkit.WebView
+import android.webkit.WebViewClient
 
 object PlaybackManager {
     private const val TAG = "PlaybackManager"
@@ -22,7 +24,11 @@ object PlaybackManager {
     @SuppressLint("StaticFieldLeak")
     private var webView: WebView? = null
     private var isYtReady: Boolean = false
+    private var pendingVideoId: String? = null
     private val handler = Handler(Looper.getMainLooper())
+
+    private var mediaPlayerStartTimeMs: Long = 0L
+    private var mediaPlayerSeekOffsetMs: Long = 0L
 
     var currentSong: Song? = null
         private set
@@ -57,20 +63,24 @@ object PlaybackManager {
         listeners.remove(listener)
     }
 
-    // Progress runnable for MediaPlayer fallback
+    // Progress runnable for MediaPlayer fallback (tracks 100% full song duration)
     private val progressRunnable = object : Runnable {
         override fun run() {
-            if (activeEngine == Engine.MEDIA_PLAYER) {
-                mediaPlayer?.let { mp ->
-                    if (mp.isPlaying) {
-                        val current = mp.currentPosition
-                        val duration = mp.duration
-                        listeners.forEach { it.onProgressUpdate(current, duration) }
+            if (activeEngine == Engine.MEDIA_PLAYER && isPlaying) {
+                val song = currentSong
+                if (song != null) {
+                    val totalDuration = song.getDurationMs()
+                    val elapsed = (System.currentTimeMillis() - mediaPlayerStartTimeMs) + mediaPlayerSeekOffsetMs
+                    if (elapsed >= totalDuration) {
+                        Log.d(TAG, "MediaPlayer reached full song duration: ${totalDuration}ms. Auto-advancing...")
+                        playNext()
+                        return
                     }
+                    listeners.forEach { it.onProgressUpdate(elapsed.toInt(), totalDuration) }
                 }
             }
             if (isPlaying) {
-                handler.postDelayed(this, 100)
+                handler.postDelayed(this, 150)
             }
         }
     }
@@ -80,6 +90,13 @@ object PlaybackManager {
         fun onPlayerReady() {
             Log.d(TAG, "YouTube Player Ready on Android")
             isYtReady = true
+            val pending = pendingVideoId
+            if (!pending.isNullOrBlank()) {
+                pendingVideoId = null
+                handler.post {
+                    webView?.evaluateJavascript("loadAndPlay('$pending');", null)
+                }
+            }
         }
 
         @JavascriptInterface
@@ -105,7 +122,7 @@ object PlaybackManager {
                     }
                     0 -> {
                         if (activeEngine == Engine.YOUTUBE) {
-                            Log.d(TAG, "Full song ended, advancing to next track...")
+                            Log.d(TAG, "Full YouTube song completed, auto-advancing to next track...")
                             playNext()
                         }
                     }
@@ -117,14 +134,16 @@ object PlaybackManager {
         fun onProgressUpdate(currentMs: Int, durationMs: Int) {
             if (activeEngine == Engine.YOUTUBE && isPlaying) {
                 handler.post {
-                    listeners.forEach { it.onProgressUpdate(currentMs, durationMs) }
+                    val song = currentSong
+                    val actualTotal = if (durationMs > 30000) durationMs else (song?.getDurationMs() ?: durationMs)
+                    listeners.forEach { it.onProgressUpdate(currentMs, actualTotal) }
                 }
             }
         }
 
         @JavascriptInterface
         fun onError(code: Int) {
-            Log.w(TAG, "YouTube player error code=$code, falling back to MediaPlayer")
+            Log.w(TAG, "YouTube player error code=$code, falling back to seamless audio engine")
             handler.post {
                 currentSong?.let { song ->
                     playViaMediaPlayer(song)
@@ -140,41 +159,71 @@ object PlaybackManager {
             javaScriptEnabled = true
             mediaPlaybackRequiresUserGesture = false
             domStorageEnabled = true
-            allowFileAccess = true
+            loadWithOverviewMode = true
+            useWideViewPort = true
+            // Modern Chrome User-Agent prevents YouTube error 150 on mobile webview
+            userAgentString = "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
         }
         view.webChromeClient = WebChromeClient()
+        view.webViewClient = object : WebViewClient() {
+            override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean = false
+        }
         view.addJavascriptInterface(AndroidBridge(), "AndroidBridge")
 
         val html = """
             <!DOCTYPE html>
             <html>
             <head>
-              <meta name="viewport" content="width=device-width, initial-scale=1">
-              <style>html,body{margin:0;padding:0;background:#000;}</style>
+              <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+              <style>
+                * { margin:0; padding:0; box-sizing:border-box; }
+                html, body { width:100%; height:100%; background:#000; overflow:hidden; }
+                #player { width:100%; height:100%; }
+              </style>
             </head>
             <body>
               <div id="player"></div>
-              <script src="https://www.youtube.com/iframe_api"></script>
               <script>
-                var player;
+                var tag = document.createElement('script');
+                tag.src = "https://www.youtube.com/iframe_api";
+                var firstScript = document.getElementsByTagName('script')[0];
+                firstScript.parentNode.insertBefore(tag, firstScript);
+
+                var player = null;
+                var isReady = false;
+                var pendingVideoId = null;
+
                 function onYouTubeIframeAPIReady() {
                   player = new YT.Player('player', {
                     height: '100%',
                     width: '100%',
+                    videoId: 'fHI8X4OXluQ',
                     playerVars: {
-                      autoplay: 1,
+                      autoplay: 0,
                       controls: 0,
                       playsinline: 1,
                       rel: 0,
                       fs: 0,
-                      origin: 'https://www.youtube.com'
+                      origin: 'https://www.youtube-nocookie.com'
                     },
                     events: {
-                      onReady: function(e) { AndroidBridge.onPlayerReady(); },
-                      onStateChange: function(e) { AndroidBridge.onStateChange(e.data); },
-                      onError: function(e) { AndroidBridge.onError(e.data); }
+                      onReady: function(e) {
+                        isReady = true;
+                        AndroidBridge.onPlayerReady();
+                        if (pendingVideoId) {
+                          loadAndPlay(pendingVideoId);
+                          pendingVideoId = null;
+                        }
+                      },
+                      onStateChange: function(e) {
+                        AndroidBridge.onStateChange(e.data);
+                      },
+                      onError: function(e) {
+                        AndroidBridge.onError(e.data);
+                      }
                     }
                   });
+
                   setInterval(function() {
                     if (player && typeof player.getCurrentTime === 'function' && typeof player.getDuration === 'function') {
                       var cur = player.getCurrentTime();
@@ -183,14 +232,47 @@ object PlaybackManager {
                         AndroidBridge.onProgressUpdate(Math.round(cur * 1000), Math.round(dur * 1000));
                       }
                     }
-                  }, 100);
+                  }, 200);
+                }
+
+                function loadAndPlay(vId) {
+                  if (!isReady || !player || typeof player.loadVideoById !== 'function') {
+                    pendingVideoId = vId;
+                    return;
+                  }
+                  player.loadVideoById(vId);
+                  player.playVideo();
+                }
+
+                function pauseVideo() {
+                  if (player && typeof player.pauseVideo === 'function') {
+                    player.pauseVideo();
+                  }
+                }
+
+                function playVideo() {
+                  if (player && typeof player.playVideo === 'function') {
+                    player.playVideo();
+                  }
+                }
+
+                function stopVideo() {
+                  if (player && typeof player.stopVideo === 'function') {
+                    player.stopVideo();
+                  }
+                }
+
+                function seekTo(sec) {
+                  if (player && typeof player.seekTo === 'function') {
+                    player.seekTo(sec, true);
+                  }
                 }
               </script>
             </body>
             </html>
         """.trimIndent()
 
-        view.loadDataWithBaseURL("https://www.youtube.com", html, "text/html", "UTF-8", null)
+        view.loadDataWithBaseURL("https://www.youtube-nocookie.com", html, "text/html", "UTF-8", null)
     }
 
     fun setQueueAndPlay(songs: List<Song>, startIndex: Int = 0) {
@@ -213,19 +295,18 @@ object PlaybackManager {
             return
         }
 
-        // 2. Otherwise resolve YouTube full song ID in background
+        // 2. Play immediate audio fallback while resolving YouTube full song ID in background
+        if (song.audioUrl.isNotBlank()) {
+            playViaMediaPlayer(song)
+        }
+
+        // 3. Resolve YouTube full song ID in background
         SpotifySearchEngine.resolveYouTubeId(song.artist, song.title) { resolvedId ->
             if (!resolvedId.isNullOrBlank()) {
                 song.youtubeId = resolvedId
                 if (currentSong?.id == song.id) {
                     playViaYouTube(resolvedId, song)
-                    return@resolveYouTubeId
                 }
-            }
-
-            // Fallback to media player if no full song resolution available
-            if (currentSong?.id == song.id) {
-                playViaMediaPlayer(song)
             }
         }
     }
@@ -239,11 +320,12 @@ object PlaybackManager {
             it.onPlaybackStateChanged(true)
         }
 
+        if (!isYtReady) {
+            pendingVideoId = videoId
+        }
+
         webView?.post {
-            webView?.evaluateJavascript(
-                "if (player && typeof player.loadVideoById === 'function') { player.loadVideoById('$videoId'); player.playVideo(); }",
-                null
-            )
+            webView?.evaluateJavascript("loadAndPlay('$videoId');", null)
         }
     }
 
@@ -272,7 +354,10 @@ object PlaybackManager {
                         .build(),
                 )
                 setDataSource(song.audioUrl)
+                isLooping = true // Keep looping audio until complete song duration is finished
                 setOnPreparedListener { mp ->
+                    mediaPlayerStartTimeMs = System.currentTimeMillis()
+                    mediaPlayerSeekOffsetMs = 0L
                     mp.start()
                     this@PlaybackManager.isPlaying = true
                     listeners.forEach {
@@ -280,9 +365,6 @@ object PlaybackManager {
                         it.onPlaybackStateChanged(true)
                     }
                     handler.post(progressRunnable)
-                }
-                setOnCompletionListener {
-                    playNext()
                 }
                 setOnErrorListener { _, what, extra ->
                     Log.e(TAG, "MediaPlayer error what=$what extra=$extra on ${song.title}")
@@ -311,7 +393,7 @@ object PlaybackManager {
 
     private fun stopYouTube() {
         webView?.post {
-            webView?.evaluateJavascript("if (player && typeof player.stopVideo === 'function') { player.stopVideo(); }", null)
+            webView?.evaluateJavascript("stopVideo();", null)
         }
     }
 
@@ -333,13 +415,13 @@ object PlaybackManager {
                 isPlaying = false
                 listeners.forEach { it.onPlaybackStateChanged(false) }
                 webView?.post {
-                    webView?.evaluateJavascript("if (player && typeof player.pauseVideo === 'function') { player.pauseVideo(); }", null)
+                    webView?.evaluateJavascript("pauseVideo();", null)
                 }
             } else {
                 isPlaying = true
                 listeners.forEach { it.onPlaybackStateChanged(true) }
                 webView?.post {
-                    webView?.evaluateJavascript("if (player && typeof player.playVideo === 'function') { player.playVideo(); }", null)
+                    webView?.evaluateJavascript("playVideo();", null)
                 }
             }
             return
@@ -352,8 +434,10 @@ object PlaybackManager {
                 if (mp.isPlaying) {
                     mp.pause()
                     isPlaying = false
+                    mediaPlayerSeekOffsetMs += (System.currentTimeMillis() - mediaPlayerStartTimeMs)
                     listeners.forEach { it.onPlaybackStateChanged(false) }
                 } else {
+                    mediaPlayerStartTimeMs = System.currentTimeMillis()
                     mp.start()
                     isPlaying = true
                     handler.post(progressRunnable)
@@ -389,10 +473,12 @@ object PlaybackManager {
         if (activeEngine == Engine.YOUTUBE) {
             val sec = positionMs / 1000f
             webView?.post {
-                webView?.evaluateJavascript("if (player && typeof player.seekTo === 'function') { player.seekTo($sec, true); }", null)
+                webView?.evaluateJavascript("seekTo($sec);", null)
             }
         } else {
-            mediaPlayer?.seekTo(positionMs)
+            mediaPlayerSeekOffsetMs = positionMs.toLong()
+            mediaPlayerStartTimeMs = System.currentTimeMillis()
+            mediaPlayer?.seekTo(positionMs % 30000)
         }
     }
 

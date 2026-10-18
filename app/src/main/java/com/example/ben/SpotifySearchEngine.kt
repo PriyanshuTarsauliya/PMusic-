@@ -130,7 +130,7 @@ object SpotifySearchEngine {
             audioUrl = "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/98/f0/d6/98f0d67e-f8bf-762d-cac7-1c6b3b6b35dd/mzaf_4543283896248560946.plus.aac.p.m4a",
             artworkUrl = "https://is1-ssl.mzstatic.com/image/thumb/Music125/v4/4b/30/2c/4b302cb6-7a14-5464-4e97-0577e9d0be49/18UMGIM82277.rgb.jpg/400x400bb.jpg",
             popularity = 97,
-            youtubeId = "ApXoWvfEYVU",
+            youtubeId = "BnoxtZ11vQ0",
         ),
         Song(
             id = "track-11",
@@ -199,6 +199,15 @@ object SpotifySearchEngine {
             youtubeId = "dvgZkm1xWPE",
         ),
     )
+
+    init {
+        defaultCuratedSongs.forEach { song ->
+            val key = "${song.artist} ${song.title}".trim().lowercase(Locale.ROOT)
+            song.youtubeId?.let { yId ->
+                youtubeIdCache.put(key, yId)
+            }
+        }
+    }
 
     @Volatile
     private var latestQuery: String = ""
@@ -323,6 +332,7 @@ object SpotifySearchEngine {
                                         audioUrl = previewUrl,
                                         artworkUrl = artworkHighRes,
                                         youtubeId = knownYtId,
+                                        durationMs = durationMs,
                                     ),
                                 )
                             }

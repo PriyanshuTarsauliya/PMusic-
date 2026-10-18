@@ -1512,16 +1512,33 @@
                     android:textStyle="bold"
                     tools:text="Blinding Lights" />
 
-                <TextView
-                    android:id="@+id/tvPlayerArtist"
+                <LinearLayout
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="2dp"
-                    android:ellipsize="end"
-                    android:maxLines="1"
-                    android:textColor="@color/spotify_subdued"
-                    android:textSize="12sp"
-                    tools:text="The Weeknd" />
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:id="@+id/tvPlayerArtist"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:ellipsize="end"
+                        android:maxLines="1"
+                        android:textColor="@color/spotify_subdued"
+                        android:textSize="12sp"
+                        tools:text="The Weeknd" />
+
+                    <TextView
+                        android:id="@+id/tvPlayerDuration"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="6dp"
+                        android:textColor="@color/spotify_green"
+                        android:textSize="11sp"
+                        android:textStyle="bold"
+                        tools:text="• 0:00 / 3:20" />
+                </LinearLayout>
             </LinearLayout>
 
             <!-- Previous -->
@@ -1575,9 +1592,12 @@
     <!-- Embedded Full-Song Audio Engine (YouTube IFrame API Player) -->
     <WebView
         android:id="@+id/webViewPlayer"
-        android:layout_width="1dp"
-        android:layout_height="1dp"
-        android:visibility="invisible"
+        android:layout_width="320dp"
+        android:layout_height="200dp"
+        android:visibility="visible"
+        android:alpha="0.01"
+        android:translationX="-9999dp"
+        android:importantForAccessibility="no"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent" />
 
