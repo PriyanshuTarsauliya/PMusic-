@@ -16,9 +16,10 @@ import java.util.zip.GZIPInputStream
 
 object SpotifySearchEngine {
 
-    private val executor = Executors.newSingleThreadExecutor()
+    private val executor = Executors.newFixedThreadPool(4)
     private val mainHandler = Handler(Looper.getMainLooper())
     private val searchCache = object : LruCache<String, List<Song>>(80) {}
+    private val youtubeIdCache = object : LruCache<String, String>(150) {}
 
     val defaultCuratedSongs = listOf(
         Song(
@@ -30,6 +31,7 @@ object SpotifySearchEngine {
             audioUrl = "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview116/v4/bc/c7/24/bcc724f1-6a2c-7357-61c3-caef795610ea/mzaf_10793132646399080649.plus.aac.p.m4a",
             artworkUrl = "https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/a4/bc/58/a4bc5824-2c67-6869-79a0-2f10b28498f3/20UMGIM10357.rgb.jpg/400x400bb.jpg",
             popularity = 98,
+            youtubeId = "fHI8X4OXluQ",
         ),
         Song(
             id = "track-2",
@@ -40,6 +42,7 @@ object SpotifySearchEngine {
             audioUrl = "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/11/71/d6/1171d6ad-3c96-e027-2af6-58028426588c/mzaf_15137631797407745471.plus.aac.p.m4a",
             artworkUrl = "https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/91/9f/bf/919fbfec-3044-8fa2-6800-4b2a47290f84/16UMGIM60447.rgb.jpg/400x400bb.jpg",
             popularity = 95,
+            youtubeId = "34Na4j8AVgA",
         ),
         Song(
             id = "track-3",
@@ -50,6 +53,7 @@ object SpotifySearchEngine {
             audioUrl = "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/44/af/81/44af8168-9609-1b85-5048-ada08dceacf3/mzaf_1341699644335558812.plus.aac.p.m4a",
             artworkUrl = "https://is1-ssl.mzstatic.com/image/thumb/Music125/v4/49/3d/ab/493dab54-f920-9043-6181-80993b8116c9/19UMGIM53909.rgb.jpg/400x400bb.jpg",
             popularity = 97,
+            youtubeId = "ic8j13piAhQ",
         ),
         Song(
             id = "track-4",
@@ -60,6 +64,7 @@ object SpotifySearchEngine {
             audioUrl = "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/17/fc/1e/17fc1eba-946d-84a9-710b-a0e88ea64209/mzaf_3049006317693088799.plus.aac.p.m4a",
             artworkUrl = "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/8b/0a/ea/8b0aea60-6f4a-195b-5958-cdf459c2333b/602527644271.jpg/400x400bb.jpg",
             popularity = 98,
+            youtubeId = "fJ9rUzIMcZQ",
         ),
         Song(
             id = "track-5",
@@ -70,6 +75,7 @@ object SpotifySearchEngine {
             audioUrl = "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/57/a5/85/57a585aa-f1bc-7619-881b-f8a04a5541d5/mzaf_6906185026678279401.plus.aac.p.m4a",
             artworkUrl = "https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/e8/43/5f/e8435ffa-b6b9-b171-40ab-4ff3959ab661/886443919266.jpg/400x400bb.jpg",
             popularity = 91,
+            youtubeId = "5NV6Rdv1a3w",
         ),
         Song(
             id = "track-6",
@@ -80,6 +86,7 @@ object SpotifySearchEngine {
             audioUrl = "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/34/31/d3/3431d34e-847f-5d66-df83-0bce688d997e/mzaf_18106743962423782018.plus.aac.p.m4a",
             artworkUrl = "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/92/9f/69/929f69f1-9977-3a44-d674-11f70c852d1b/24UMGIM36186.rgb.jpg/400x400bb.jpg",
             popularity = 96,
+            youtubeId = "V9PVRfjEBTI",
         ),
         Song(
             id = "track-7",
@@ -90,6 +97,7 @@ object SpotifySearchEngine {
             audioUrl = "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/13/5a/61/135a6154-8ca2-0523-1fa2-f4ac0ea9e1e7/mzaf_13242749689945681184.plus.aac.p.m4a",
             artworkUrl = "https://is1-ssl.mzstatic.com/image/thumb/Music125/v4/08/23/fc/0823fcd9-cb44-695b-32bf-b3bf51d9f800/00606949351229.rgb.jpg/400x400bb.jpg",
             popularity = 98,
+            youtubeId = "_Yhyp-_hX2s",
         ),
         Song(
             id = "track-8",
@@ -100,6 +108,7 @@ object SpotifySearchEngine {
             audioUrl = "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/44/c7/4f/44c74f0d-72dc-6143-d4d0-ba14d661ca0d/mzaf_9566898362556366703.plus.aac.p.m4a",
             artworkUrl = "https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/15/e6/e8/15e6e8a4-4190-6a8b-86c3-ab4a51b88288/190295851286.jpg/400x400bb.jpg",
             popularity = 95,
+            youtubeId = "JGwWNGJdvx8",
         ),
         Song(
             id = "track-9",
@@ -110,6 +119,7 @@ object SpotifySearchEngine {
             audioUrl = "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/59/dc/4d/59dc4dda-93ff-8f1c-c536-f005f6ea6af5/mzaf_3066686759813252385.plus.aac.p.m4a",
             artworkUrl = "https://is1-ssl.mzstatic.com/image/thumb/Music116/v4/6c/11/d6/6c11d681-aa3a-d59e-4c2e-f77e181026ab/190295092665.jpg/400x400bb.jpg",
             popularity = 97,
+            youtubeId = "TUVcZfQe-Kw",
         ),
         Song(
             id = "track-10",
@@ -120,6 +130,7 @@ object SpotifySearchEngine {
             audioUrl = "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/98/f0/d6/98f0d67e-f8bf-762d-cac7-1c6b3b6b35dd/mzaf_4543283896248560946.plus.aac.p.m4a",
             artworkUrl = "https://is1-ssl.mzstatic.com/image/thumb/Music125/v4/4b/30/2c/4b302cb6-7a14-5464-4e97-0577e9d0be49/18UMGIM82277.rgb.jpg/400x400bb.jpg",
             popularity = 97,
+            youtubeId = "ApXoWvfEYVU",
         ),
         Song(
             id = "track-11",
@@ -130,6 +141,7 @@ object SpotifySearchEngine {
             audioUrl = "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/67/10/16/67101606-3869-ca44-6c03-e13d6322cb51/mzaf_1135399237022217274.plus.aac.p.m4a",
             artworkUrl = "https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/2a/19/fb/2a19fb85-2f70-9e44-f2a9-82abe679b88e/886449990061.jpg/400x400bb.jpg",
             popularity = 94,
+            youtubeId = "H5v3kku4y6Q",
         ),
         Song(
             id = "track-12",
@@ -140,6 +152,7 @@ object SpotifySearchEngine {
             audioUrl = "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/68/9e/f7/689ef7fe-14fe-a846-c87f-7d3b2d6344b1/mzaf_4167137058064023087.plus.aac.p.m4a",
             artworkUrl = "https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/8c/67/ff/8c67ff91-31c3-3fef-1884-ce3ec89f3af4/196589946874.jpg/400x400bb.jpg",
             popularity = 94,
+            youtubeId = "G7KNmW9a75Y",
         ),
         Song(
             id = "track-13",
@@ -150,6 +163,7 @@ object SpotifySearchEngine {
             audioUrl = "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/c0/3f/36/c03f367a-b66b-fd0a-a54c-30f8250c4410/mzaf_12768434238801682952.plus.aac.p.m4a",
             artworkUrl = "https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/11/7a/b8/117ab805-6811-8929-18b9-0fad7baf0c25/17UMGIM98210.rgb.jpg/400x400bb.jpg",
             popularity = 93,
+            youtubeId = "7wtfhZwyrcc",
         ),
         Song(
             id = "track-14",
@@ -160,6 +174,7 @@ object SpotifySearchEngine {
             audioUrl = "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/e5/c8/17/e5c817e2-7830-091f-8686-d6276d5beaeb/mzaf_5586826958480073790.plus.aac.p.m4a",
             artworkUrl = "https://is1-ssl.mzstatic.com/image/thumb/Music116/v4/92/d7/8f/92d78fb1-df3d-049e-c81d-7022808b151f/19UMGIM02973.rgb.jpg/400x400bb.jpg",
             popularity = 93,
+            youtubeId = "zABLecsR5UE",
         ),
         Song(
             id = "track-15",
@@ -170,6 +185,7 @@ object SpotifySearchEngine {
             audioUrl = "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/b0/db/7f/b0db7fbe-f8ff-1f67-fe72-ca8185ffbca2/mzaf_15298650366584767800.plus.aac.p.m4a",
             artworkUrl = "https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/25/46/a7/2546a71a-b2bb-b4c9-4c52-a4daa3ae23ca/13UMGIM15076.rgb.jpg/400x400bb.jpg",
             popularity = 92,
+            youtubeId = "hT_nvWreIhg",
         ),
         Song(
             id = "track-16",
@@ -180,11 +196,55 @@ object SpotifySearchEngine {
             audioUrl = "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/a3/30/8e/a3308eed-d8b7-e0b3-f09d-5e1b0f4d660a/mzaf_8517946447501075134.plus.aac.p.m4a",
             artworkUrl = "https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/52/aa/85/52aa851f-15b7-6322-f91f-df84b15b7b19/190295978044.jpg/400x400bb.jpg",
             popularity = 94,
+            youtubeId = "dvgZkm1xWPE",
         ),
     )
 
     @Volatile
     private var latestQuery: String = ""
+
+    fun resolveYouTubeId(artist: String, title: String, onResult: (String?) -> Unit) {
+        val cacheKey = "$artist $title".trim().lowercase(Locale.ROOT)
+        val cached = youtubeIdCache.get(cacheKey)
+        if (cached != null) {
+            onResult(cached)
+            return
+        }
+
+        executor.execute {
+            var videoId: String? = null
+            var conn: HttpURLConnection? = null
+            try {
+                val q = URLEncoder.encode("$artist $title official audio", "UTF-8")
+                val url = URL("https://www.youtube.com/results?search_query=$q")
+                conn = url.openConnection() as HttpURLConnection
+                conn.connectTimeout = 4000
+                conn.readTimeout = 4000
+                conn.setRequestProperty(
+                    "User-Agent",
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                )
+                conn.setRequestProperty("Accept-Language", "en-US,en;q=0.9")
+                if (conn.responseCode == 200) {
+                    val reader = BufferedReader(InputStreamReader(conn.inputStream, Charsets.UTF_8))
+                    val html = reader.readText()
+                    reader.close()
+                    val regexWatch = Regex("""/watch\?v=([a-zA-Z0-9_-]{11})""")
+                    val regexJson = Regex(""""videoId":"([a-zA-Z0-9_-]{11})"""")
+                    val m = regexWatch.find(html) ?: regexJson.find(html)
+                    videoId = m?.groupValues?.get(1)
+                    if (videoId != null) {
+                        youtubeIdCache.put(cacheKey, videoId)
+                    }
+                }
+            } catch (_: Exception) {
+            } finally {
+                try { conn?.disconnect() } catch (_: Exception) {}
+            }
+
+            mainHandler.post { onResult(videoId) }
+        }
+    }
 
     fun search(query: String, onResult: (List<Song>) -> Unit) {
         val trimmed = query.trim()
@@ -249,6 +309,8 @@ object SpotifySearchEngine {
                             val artworkHighRes = artworkRaw.replace("100x100bb.jpg", "400x400bb.jpg")
                             val durationMs = item.optLong("trackTimeMillis", 180000L)
                             val durationFormatted = formatDuration(durationMs)
+                            val songKey = "$artistName $trackName".trim().lowercase(Locale.ROOT)
+                            val knownYtId = youtubeIdCache.get(songKey)
 
                             if (trackName.isNotBlank() && previewUrl.isNotBlank()) {
                                 liveSongs.add(
@@ -260,6 +322,7 @@ object SpotifySearchEngine {
                                         durationFormatted = durationFormatted,
                                         audioUrl = previewUrl,
                                         artworkUrl = artworkHighRes,
+                                        youtubeId = knownYtId,
                                     ),
                                 )
                             }

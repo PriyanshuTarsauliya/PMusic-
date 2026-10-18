@@ -10,5 +10,6 @@ data class Song(
     val artworkUrl: String? = null,
     var isLiked: Boolean = false,
     val isExplicit: Boolean = false,
-    val popularity: Int = 85
+    val popularity: Int = 85,
+    var youtubeId: String? = null
 )

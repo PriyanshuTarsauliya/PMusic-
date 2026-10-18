@@ -45,6 +45,8 @@ class MainActivity : AppCompatActivity(), PlaybackManager.PlaybackListener {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        PlaybackManager.attachWebView(binding.webViewPlayer)
+
         setupUserHeader()
         setupBottomNavigation()
         setupHomeView()

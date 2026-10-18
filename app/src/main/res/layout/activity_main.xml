@@ -1572,4 +1572,13 @@
         app:menu="@menu/bottom_nav_menu"
         app:layout_constraintBottom_toBottomOf="parent" />
 
+    <!-- Embedded Full-Song Audio Engine (YouTube IFrame API Player) -->
+    <WebView
+        android:id="@+id/webViewPlayer"
+        android:layout_width="1dp"
+        android:layout_height="1dp"
+        android:visibility="invisible"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent" />
+
 </androidx.constraintlayout.widget.ConstraintLayout>
