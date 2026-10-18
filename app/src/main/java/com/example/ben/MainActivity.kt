@@ -23,6 +23,7 @@ class MainActivity : AppCompatActivity(), PlaybackManager.PlaybackListener {
     private lateinit var homeSongAdapter: SongAdapter
 
     private var currentFilteredSongs = SpotifySearchEngine.defaultCuratedSongs.toList()
+    private var displayedSongs = SpotifySearchEngine.defaultCuratedSongs.toList()
     private val searchHandler = Handler(Looper.getMainLooper())
     private var searchRunnable: Runnable? = null
     private var activeCategory: String = "All"
@@ -206,8 +207,12 @@ class MainActivity : AppCompatActivity(), PlaybackManager.PlaybackListener {
         // Home song recommendations list
         homeSongAdapter = SongAdapter(
             songs = curated,
-            onSongClick = { _, position ->
-                PlaybackManager.setQueueAndPlay(curated, position)
+            onSongClick = { song, position ->
+                if (PlaybackManager.currentSong?.id == song.id) {
+                    PlaybackManager.togglePlayPause()
+                } else {
+                    PlaybackManager.setQueueAndPlay(curated, position)
+                }
             },
             onLikeClick = { song ->
                 UbiTelemetryManager.log("hitLike", "${song.title} (${if (song.isLiked) "Added" else "Removed"})")
@@ -226,8 +231,12 @@ class MainActivity : AppCompatActivity(), PlaybackManager.PlaybackListener {
         }
 
         binding.btnHomePlayAll.setOnClickListener {
-            PlaybackManager.setQueueAndPlay(curated, 0)
-            Toast.makeText(this, "Playing all recommended songs", Toast.LENGTH_SHORT).show()
+            if (PlaybackManager.currentSong != null && curated.any { it.id == PlaybackManager.currentSong?.id }) {
+                PlaybackManager.togglePlayPause()
+            } else {
+                PlaybackManager.setQueueAndPlay(curated, 0)
+                Toast.makeText(this, "Playing all recommended songs", Toast.LENGTH_SHORT).show()
+            }
         }
     }
 
@@ -258,17 +267,6 @@ class MainActivity : AppCompatActivity(), PlaybackManager.PlaybackListener {
             binding.searchProgressBar.visibility = View.GONE
             currentFilteredSongs = results
             applyCategoryFilter()
-
-            // Update Top Result Card
-            if (currentFilteredSongs.isNotEmpty()) {
-                val top = currentFilteredSongs.first()
-                binding.tvTopResultTitle.text = top.title
-                binding.tvTopResultArtist.text = top.artist
-                ImageLoader.load(top.artworkUrl, binding.imgTopResult)
-                binding.cardTopResult.visibility = View.VISIBLE
-            } else {
-                binding.cardTopResult.visibility = View.GONE
-            }
         }
     }
 
@@ -296,31 +294,56 @@ class MainActivity : AppCompatActivity(), PlaybackManager.PlaybackListener {
         val filtered = when (activeCategory) {
             "Artists" -> currentFilteredSongs.distinctBy { it.artist }
             "Playlists" -> currentFilteredSongs.sortedBy { it.album }
+            "Songs" -> currentFilteredSongs
             else -> currentFilteredSongs
         }
+        displayedSongs = filtered
         songAdapter.updateSongs(filtered)
+
+        if (activeCategory == "Songs") {
+            binding.cardTopResult.visibility = View.GONE
+        } else {
+            setupTopResult()
+        }
     }
 
     private fun setupTopResult() {
-        val top = currentFilteredSongs.firstOrNull() ?: return
+        val top = displayedSongs.firstOrNull()
+        if (top == null) {
+            binding.cardTopResult.visibility = View.GONE
+            return
+        }
+        binding.cardTopResult.visibility = View.VISIBLE
         binding.tvTopResultTitle.text = top.title
         binding.tvTopResultArtist.text = top.artist
         ImageLoader.load(top.artworkUrl, binding.imgTopResult)
 
         binding.btnTopResultPlay.setOnClickListener {
-            PlaybackManager.setQueueAndPlay(currentFilteredSongs, 0)
+            if (PlaybackManager.currentSong?.id == top.id) {
+                PlaybackManager.togglePlayPause()
+            } else {
+                PlaybackManager.setQueueAndPlay(displayedSongs, 0)
+            }
         }
 
         binding.cardTopResult.setOnClickListener {
-            PlaybackManager.setQueueAndPlay(currentFilteredSongs, 0)
+            if (PlaybackManager.currentSong?.id == top.id) {
+                PlaybackManager.togglePlayPause()
+            } else {
+                PlaybackManager.setQueueAndPlay(displayedSongs, 0)
+            }
         }
     }
 
     private fun setupSongList() {
         songAdapter = SongAdapter(
-            songs = currentFilteredSongs,
-            onSongClick = { _, position ->
-                PlaybackManager.setQueueAndPlay(currentFilteredSongs, position)
+            songs = displayedSongs,
+            onSongClick = { song, position ->
+                if (PlaybackManager.currentSong?.id == song.id) {
+                    PlaybackManager.togglePlayPause()
+                } else {
+                    PlaybackManager.setQueueAndPlay(displayedSongs, position)
+                }
             },
             onLikeClick = { song ->
                 UbiTelemetryManager.log("hitLike", "${song.title} (${if (song.isLiked) "Added" else "Removed"})")
@@ -342,9 +365,9 @@ class MainActivity : AppCompatActivity(), PlaybackManager.PlaybackListener {
 
         // PLAY ALL continuous queue button
         binding.btnPlayAll.setOnClickListener {
-            if (currentFilteredSongs.isNotEmpty()) {
-                PlaybackManager.setQueueAndPlay(currentFilteredSongs, 0)
-                UbiTelemetryManager.log("hitPlayAll", "Queue continuous autoplay: ${currentFilteredSongs.size} tracks")
+            if (displayedSongs.isNotEmpty()) {
+                PlaybackManager.setQueueAndPlay(displayedSongs, 0)
+                UbiTelemetryManager.log("hitPlayAll", "Queue continuous autoplay: ${displayedSongs.size} tracks")
                 Toast.makeText(this, "Playing all songs...", Toast.LENGTH_SHORT).show()
             }
         }
@@ -393,8 +416,12 @@ class MainActivity : AppCompatActivity(), PlaybackManager.PlaybackListener {
         val playLikedAction = View.OnClickListener {
             val liked = SpotifySearchEngine.defaultCuratedSongs.filter { it.isLiked }
             val toPlay = if (liked.isNotEmpty()) liked else SpotifySearchEngine.defaultCuratedSongs
-            PlaybackManager.setQueueAndPlay(toPlay, 0)
-            Toast.makeText(this, "Playing Liked Songs", Toast.LENGTH_SHORT).show()
+            if (PlaybackManager.currentSong != null && toPlay.any { it.id == PlaybackManager.currentSong?.id }) {
+                PlaybackManager.togglePlayPause()
+            } else {
+                PlaybackManager.setQueueAndPlay(toPlay, 0)
+                Toast.makeText(this, "Playing Liked Songs", Toast.LENGTH_SHORT).show()
+            }
         }
         binding.cardLikedSongs.setOnClickListener(playLikedAction)
         binding.btnPlayLikedSongs.setOnClickListener(playLikedAction)
@@ -431,6 +458,14 @@ class MainActivity : AppCompatActivity(), PlaybackManager.PlaybackListener {
     private var isTrackingSeekBar = false
 
     private fun setupBottomPlayer() {
+        // Initialize bottom player with first curated track metadata if no song has played yet
+        val initialSong = PlaybackManager.currentSong ?: SpotifySearchEngine.defaultCuratedSongs.firstOrNull()
+        if (initialSong != null) {
+            binding.tvPlayerTitle.text = initialSong.title
+            binding.tvPlayerArtist.text = initialSong.artist
+            ImageLoader.load(initialSong.artworkUrl, binding.imgPlayerThumb)
+        }
+
         binding.btnPlayerPlayPause.setOnClickListener {
             PlaybackManager.togglePlayPause()
         }

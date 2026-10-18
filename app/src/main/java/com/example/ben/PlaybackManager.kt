@@ -121,26 +121,51 @@ object PlaybackManager {
     }
 
     fun togglePlayPause() {
-        mediaPlayer?.let { mp ->
+        val mp = mediaPlayer
+        if (mp == null) {
+            val songToPlay = currentSong
+                ?: queue.getOrNull(queueIndex)
+                ?: SpotifySearchEngine.defaultCuratedSongs.firstOrNull()
+            if (songToPlay != null) {
+                if (queue.isEmpty()) {
+                    queue.addAll(SpotifySearchEngine.defaultCuratedSongs)
+                }
+                playSong(songToPlay)
+            }
+            return
+        }
+
+        try {
             if (mp.isPlaying) {
                 mp.pause()
                 isPlaying = false
+                listeners.forEach { it.onPlaybackStateChanged(isPlaying = false) }
             } else {
                 mp.start()
                 isPlaying = true
                 handler.post(progressRunnable)
+                listeners.forEach { it.onPlaybackStateChanged(isPlaying = true) }
             }
-            listeners.forEach { it.onPlaybackStateChanged(isPlaying) }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error in togglePlayPause: ${e.message}, recovering...")
+            // Recover from illegal state by playing afresh
+            currentSong?.let { playSong(it) }
         }
     }
 
     fun playNext() {
+        if (queue.isEmpty()) {
+            queue.addAll(SpotifySearchEngine.defaultCuratedSongs)
+        }
         if (queue.isEmpty()) return
         queueIndex = (queueIndex + 1) % queue.size
         playSong(queue[queueIndex])
     }
 
     fun playPrevious() {
+        if (queue.isEmpty()) {
+            queue.addAll(SpotifySearchEngine.defaultCuratedSongs)
+        }
         if (queue.isEmpty()) return
         queueIndex = ((queueIndex - 1) + queue.size) % queue.size
         playSong(queue[queueIndex])

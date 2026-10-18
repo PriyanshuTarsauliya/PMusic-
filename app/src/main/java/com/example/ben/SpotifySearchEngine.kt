@@ -26,7 +26,7 @@ object SpotifySearchEngine {
             durationFormatted = "3:20",
             audioUrl = "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview116/v4/bc/c7/24/bcc724f1-6a2c-7357-61c3-caef795610ea/mzaf_10793132646399080649.plus.aac.p.m4a",
             artworkUrl = "https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/a4/bc/58/a4bc5824-2c67-6869-79a0-2f10b28498f3/20UMGIM10357.rgb.jpg/400x400bb.jpg",
-            popularity = 98
+            popularity = 98,
         ),
         Song(
             id = "track-2",
@@ -34,9 +34,9 @@ object SpotifySearchEngine {
             artist = "The Weeknd ft. Daft Punk",
             album = "Starboy",
             durationFormatted = "3:50",
-            audioUrl = "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview125/v4/4a/12/35/4a12356c-03d1-dcf3-27dc-473d062828b1/mzaf_15939221295964893883.plus.aac.p.m4a",
+            audioUrl = "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/11/71/d6/1171d6ad-3c96-e027-2af6-58028426588c/mzaf_15137631797407745471.plus.aac.p.m4a",
             artworkUrl = "https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/91/9f/bf/919fbfec-3044-8fa2-6800-4b2a47290f84/16UMGIM60447.rgb.jpg/400x400bb.jpg",
-            popularity = 95
+            popularity = 95,
         ),
         Song(
             id = "track-3",
@@ -44,40 +44,140 @@ object SpotifySearchEngine {
             artist = "Taylor Swift",
             album = "Lover",
             durationFormatted = "2:58",
-            audioUrl = "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview116/v4/64/0e/b5/640eb51b-5136-dcf0-fdf8-dc9bb1a14138/mzaf_9043750860580979455.plus.aac.p.m4a",
-            artworkUrl = "https://is1-ssl.mzstatic.com/image/thumb/Music125/v4/09/b3/ee/09b3ee58-2947-8a4e-be69-0ff44ad7b3b4/19UMGIM53358.rgb.jpg/400x400bb.jpg",
-            popularity = 97
+            audioUrl = "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/44/af/81/44af8168-9609-1b85-5048-ada08dceacf3/mzaf_1341699644335558812.plus.aac.p.m4a",
+            artworkUrl = "https://is1-ssl.mzstatic.com/image/thumb/Music125/v4/49/3d/ab/493dab54-f920-9043-6181-80993b8116c9/19UMGIM53909.rgb.jpg/400x400bb.jpg",
+            popularity = 97,
         ),
         Song(
             id = "track-4",
             title = "Bohemian Rhapsody",
             artist = "Queen",
             album = "A Night at the Opera",
-            durationFormatted = "5:54",
-            audioUrl = "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview115/v4/8e/3c/64/8e3c647b-7b3b-82a1-026c-d29b1397b985/mzaf_16480746654271887375.plus.aac.p.m4a",
-            artworkUrl = "https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/80/48/80/804880c5-e6a8-a159-d830-4e5a953e5066/00602527717469.rgb.jpg/400x400bb.jpg",
-            popularity = 92
+            durationFormatted = "5:55",
+            audioUrl = "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/17/fc/1e/17fc1eba-946d-84a9-710b-a0e88ea64209/mzaf_3049006317693088799.plus.aac.p.m4a",
+            artworkUrl = "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/8b/0a/ea/8b0aea60-6f4a-195b-5958-cdf459c2333b/602527644271.jpg/400x400bb.jpg",
+            popularity = 98,
         ),
         Song(
             id = "track-5",
             title = "Get Lucky",
             artist = "Daft Punk ft. Pharrell Williams",
             album = "Random Access Memories",
-            durationFormatted = "4:08",
-            audioUrl = "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview115/v4/c3/09/20/c30920f7-5421-2e67-d86b-4eef11c97a9f/mzaf_17734067208947690623.plus.aac.p.m4a",
-            artworkUrl = "https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/f4/c2/c0/f4c2c018-bfa9-183d-3bf0-c48dbec7612f/886443927087.jpg/400x400bb.jpg",
-            popularity = 91
+            durationFormatted = "6:10",
+            audioUrl = "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/57/a5/85/57a585aa-f1bc-7619-881b-f8a04a5541d5/mzaf_6906185026678279401.plus.aac.p.m4a",
+            artworkUrl = "https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/e8/43/5f/e8435ffa-b6b9-b171-40ab-4ff3959ab661/886443919266.jpg/400x400bb.jpg",
+            popularity = 91,
         ),
         Song(
             id = "track-6",
             title = "BIRDS OF A FEATHER",
             artist = "Billie Eilish",
             album = "HIT ME HARD AND SOFT",
-            durationFormatted = "3:16",
-            audioUrl = "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview126/v4/d9/0f/5d/d90f5d52-9b2f-78df-a7fe-d0ec2ff73c24/mzaf_16773352741513222384.plus.aac.p.m4a",
-            artworkUrl = "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/5a/0c/b5/5a0cb5d9-482a-e898-7243-7f7ea8942a0b/24UMGIM36916.rgb.jpg/400x400bb.jpg",
-            popularity = 96
-        )
+            durationFormatted = "3:30",
+            audioUrl = "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/34/31/d3/3431d34e-847f-5d66-df83-0bce688d997e/mzaf_18106743962423782018.plus.aac.p.m4a",
+            artworkUrl = "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/92/9f/69/929f69f1-9977-3a44-d674-11f70c852d1b/24UMGIM36186.rgb.jpg/400x400bb.jpg",
+            popularity = 96,
+        ),
+        Song(
+            id = "track-7",
+            title = "Lose Yourself",
+            artist = "Eminem",
+            album = "8 Mile",
+            durationFormatted = "5:22",
+            audioUrl = "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/13/5a/61/135a6154-8ca2-0523-1fa2-f4ac0ea9e1e7/mzaf_13242749689945681184.plus.aac.p.m4a",
+            artworkUrl = "https://is1-ssl.mzstatic.com/image/thumb/Music125/v4/08/23/fc/0823fcd9-cb44-695b-32bf-b3bf51d9f800/00606949351229.rgb.jpg/400x400bb.jpg",
+            popularity = 98,
+        ),
+        Song(
+            id = "track-8",
+            title = "Shape of You",
+            artist = "Ed Sheeran",
+            album = "÷ (Deluxe)",
+            durationFormatted = "3:54",
+            audioUrl = "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/44/c7/4f/44c74f0d-72dc-6143-d4d0-ba14d661ca0d/mzaf_9566898362556366703.plus.aac.p.m4a",
+            artworkUrl = "https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/15/e6/e8/15e6e8a4-4190-6a8b-86c3-ab4a51b88288/190295851286.jpg/400x400bb.jpg",
+            popularity = 95,
+        ),
+        Song(
+            id = "track-9",
+            title = "Levitating",
+            artist = "Dua Lipa",
+            album = "Future Nostalgia",
+            durationFormatted = "3:24",
+            audioUrl = "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/59/dc/4d/59dc4dda-93ff-8f1c-c536-f005f6ea6af5/mzaf_3066686759813252385.plus.aac.p.m4a",
+            artworkUrl = "https://is1-ssl.mzstatic.com/image/thumb/Music116/v4/6c/11/d6/6c11d681-aa3a-d59e-4c2e-f77e181026ab/190295092665.jpg/400x400bb.jpg",
+            popularity = 97,
+        ),
+        Song(
+            id = "track-10",
+            title = "Sunflower",
+            artist = "Post Malone & Swae Lee",
+            album = "Spider-Man: Into the Spider-Verse",
+            durationFormatted = "2:38",
+            audioUrl = "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/98/f0/d6/98f0d67e-f8bf-762d-cac7-1c6b3b6b35dd/mzaf_4543283896248560946.plus.aac.p.m4a",
+            artworkUrl = "https://is1-ssl.mzstatic.com/image/thumb/Music125/v4/4b/30/2c/4b302cb6-7a14-5464-4e97-0577e9d0be49/18UMGIM82277.rgb.jpg/400x400bb.jpg",
+            popularity = 97,
+        ),
+        Song(
+            id = "track-11",
+            title = "As It Was",
+            artist = "Harry Styles",
+            album = "Harry's House",
+            durationFormatted = "2:47",
+            audioUrl = "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/67/10/16/67101606-3869-ca44-6c03-e13d6322cb51/mzaf_1135399237022217274.plus.aac.p.m4a",
+            artworkUrl = "https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/2a/19/fb/2a19fb85-2f70-9e44-f2a9-82abe679b88e/886449990061.jpg/400x400bb.jpg",
+            popularity = 94,
+        ),
+        Song(
+            id = "track-12",
+            title = "Flowers",
+            artist = "Miley Cyrus",
+            album = "Endless Summer Vacation",
+            durationFormatted = "3:21",
+            audioUrl = "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/68/9e/f7/689ef7fe-14fe-a846-c87f-7d3b2d6344b1/mzaf_4167137058064023087.plus.aac.p.m4a",
+            artworkUrl = "https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/8c/67/ff/8c67ff91-31c3-3fef-1884-ce3ec89f3af4/196589946874.jpg/400x400bb.jpg",
+            popularity = 94,
+        ),
+        Song(
+            id = "track-13",
+            title = "Believer",
+            artist = "Imagine Dragons",
+            album = "Evolve",
+            durationFormatted = "3:24",
+            audioUrl = "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/c0/3f/36/c03f367a-b66b-fd0a-a54c-30f8250c4410/mzaf_12768434238801682952.plus.aac.p.m4a",
+            artworkUrl = "https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/11/7a/b8/117ab805-6811-8929-18b9-0fad7baf0c25/17UMGIM98210.rgb.jpg/400x400bb.jpg",
+            popularity = 93,
+        ),
+        Song(
+            id = "track-14",
+            title = "Someone You Loved",
+            artist = "Lewis Capaldi",
+            album = "Divinely Uninspired",
+            durationFormatted = "3:02",
+            audioUrl = "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/e5/c8/17/e5c817e2-7830-091f-8686-d6276d5beaeb/mzaf_5586826958480073790.plus.aac.p.m4a",
+            artworkUrl = "https://is1-ssl.mzstatic.com/image/thumb/Music116/v4/92/d7/8f/92d78fb1-df3d-049e-c81d-7022808b151f/19UMGIM02973.rgb.jpg/400x400bb.jpg",
+            popularity = 93,
+        ),
+        Song(
+            id = "track-15",
+            title = "Counting Stars",
+            artist = "OneRepublic",
+            album = "Native",
+            durationFormatted = "4:17",
+            audioUrl = "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/b0/db/7f/b0db7fbe-f8ff-1f67-fe72-ca8185ffbca2/mzaf_15298650366584767800.plus.aac.p.m4a",
+            artworkUrl = "https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/25/46/a7/2546a71a-b2bb-b4c9-4c52-a4daa3ae23ca/13UMGIM15076.rgb.jpg/400x400bb.jpg",
+            popularity = 92,
+        ),
+        Song(
+            id = "track-16",
+            title = "Viva La Vida",
+            artist = "Coldplay",
+            album = "Viva La Vida",
+            durationFormatted = "4:01",
+            audioUrl = "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/a3/30/8e/a3308eed-d8b7-e0b3-f09d-5e1b0f4d660a/mzaf_8517946447501075134.plus.aac.p.m4a",
+            artworkUrl = "https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/52/aa/85/52aa851f-15b7-6322-f91f-df84b15b7b19/190295978044.jpg/400x400bb.jpg",
+            popularity = 94,
+        ),
     )
 
     @Volatile
@@ -88,7 +188,7 @@ object SpotifySearchEngine {
         latestQuery = trimmed
 
         if (trimmed.isEmpty()) {
-            UbiTelemetryManager.log("desktop-find.browseAll", "Showing curated recommendations")
+            UbiTelemetryManager.log("desktop-find.browseAll", "Showing curated recommendations (${defaultCuratedSongs.size} tracks)")
             onResult(defaultCuratedSongs)
             return
         }
@@ -102,7 +202,7 @@ object SpotifySearchEngine {
             var conn: HttpURLConnection? = null
             try {
                 val encoded = URLEncoder.encode(trimmed, "UTF-8")
-                val searchUrl = "https://itunes.apple.com/search?term=$encoded&entity=song&limit=25"
+                val searchUrl = "https://itunes.apple.com/search?term=$encoded&entity=song&limit=50"
                 conn = URL(searchUrl).openConnection() as HttpURLConnection
                 conn.connectTimeout = 5000
                 conn.readTimeout = 5000
@@ -138,8 +238,8 @@ object SpotifySearchEngine {
                                         album = collectionName,
                                         durationFormatted = durationFormatted,
                                         audioUrl = previewUrl,
-                                        artworkUrl = artworkHighRes
-                                    )
+                                        artworkUrl = artworkHighRes,
+                                    ),
                                 )
                             }
                         }
@@ -163,7 +263,7 @@ object SpotifySearchEngine {
             UbiTelemetryManager.log(
                 "desktop-find.resultsLoaded",
                 "Returned ${finalSongs.size} tracks (GraphQL searchDesktop hash verified)",
-                serpId
+                serpId,
             )
 
             mainHandler.post {
