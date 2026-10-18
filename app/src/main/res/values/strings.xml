@@ -1,0 +1,19 @@
+<resources>
+    <string name="app_name">Spotify</string>
+    <string name="login_title">Log in to Spotify</string>
+    <string name="login_subtitle">Millions of songs. Free on Spotify.</string>
+    <string name="hint_username">Email or Spotify username</string>
+    <string name="hint_password">Password</string>
+    <string name="btn_login">LOG IN</string>
+    <string name="btn_spotify_web_login">CONTINUE WITH SPOTIFY WEB</string>
+    <string name="btn_demo_login">USE TEST CREDENTIALS</string>
+    <string name="search_hint">What do you want to play?</string>
+    <string name="developer_credit">Developed by Ben 10</string>
+    <string name="developer_credit_full">⚡ Developed by Ben 10</string>
+    <string name="user_greeting">Hello, %1$s</string>
+    <string name="nav_home">Home</string>
+    <string name="nav_search">Search</string>
+    <string name="nav_library">Your Library</string>
+    <string name="library_title">Your Library</string>
+    <string name="library_liked_songs">Liked Songs</string>
+</resources>

@@ -1,0 +1,13 @@
+*.iml
+.gradle/
+build/
+app/build/
+local.properties
+.DS_Store
+.idea/
+.vscode/
+.kotlin/
+captures/
+.externalNativeBuild/
+.cxx/
+spotify-search/

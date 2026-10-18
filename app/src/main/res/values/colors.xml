@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="spotify_black">#121212</color>
+    <color name="spotify_surface">#181818</color>
+    <color name="spotify_card">#242424</color>
+    <color name="spotify_card_hover">#2A2A2A</color>
+    <color name="spotify_green">#1ED760</color>
+    <color name="spotify_green_hover">#1FDF64</color>
+    <color name="spotify_white">#FFFFFF</color>
+    <color name="spotify_subdued">#B3B3B3</color>
+    <color name="spotify_muted">#727272</color>
+    <color name="spotify_divider">#2A2A2A</color>
+    <color name="spotify_chip_bg">#282828</color>
+    
+    <color name="black">#000000</color>
+    <color name="white">#FFFFFF</color>
+</resources>

@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: spotify-search
+    rootDir: spotify-search
+    runtime: node
+    plan: free
+    region: ohio
+    buildCommand: npm install
+    startCommand: node server.js
+    envVars:
+      - key: NODE_ENV
+        value: production
