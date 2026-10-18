@@ -1284,9 +1284,19 @@ window.onYouTubeIframeAPIReady = function() {
   });
 };
 
+if (window.YT && window.YT.Player) {
+  try { window.onYouTubeIframeAPIReady(); } catch (_) {}
+}
+
 function onYtReady() {
   ytReady = true;
   console.log('YouTube Full Audio Engine Ready.');
+  if (State.currentTrack && State.currentTrack.youtubeId && State.isPlaying && State.activeEngine === 'youtube') {
+    try {
+      ytPlayer.loadVideoById(State.currentTrack.youtubeId);
+      ytPlayer.playVideo();
+    } catch (_) {}
+  }
 }
 
 function onYtStateChange(event) {
@@ -1384,7 +1394,7 @@ function stopYtProgress() {
   if (ytProgressInterval) clearInterval(ytProgressInterval);
 }
 
-// Resolve full track to YouTube stream & play
+// Resolve full track to YouTube stream & play complete 100% full song
 async function playFullTrack(track) {
   if (!track) return;
   State.currentTrack = track;
@@ -1394,28 +1404,55 @@ async function playFullTrack(track) {
 
   const audio = document.getElementById('audio-engine');
 
-  // 1. If we already know the video ID and YouTube player is ready
-  let videoId = track.youtubeId;
-
-  if (videoId && ytPlayer && ytReady && typeof ytPlayer.loadVideoById === 'function') {
-    // Stop HTML5 audio to prevent overlapping playback
+  // Helper to start YouTube full-song playback
+  const startYouTube = (vId) => {
+    track.youtubeId = vId;
     if (audio) {
       audio.pause();
       audio.currentTime = 0;
     }
     State.activeEngine = 'youtube';
     try {
-      ytPlayer.loadVideoById(videoId);
-      ytPlayer.playVideo();
-      return;
+      if (ytPlayer && ytReady && typeof ytPlayer.loadVideoById === 'function') {
+        ytPlayer.loadVideoById(vId);
+        ytPlayer.playVideo();
+        updatePlayerUI();
+        return true;
+      }
     } catch (err) {
-      console.warn('YouTube load/play error, attempting audio fallback:', err);
+      console.warn('YouTube loadVideoById error:', err);
     }
+    return false;
+  };
+
+  // 1. If we already know the video ID, play complete full song via YouTube
+  let videoId = track.youtubeId;
+  if (videoId) {
+    if (startYouTube(videoId)) return;
   }
 
-  // 2. Immediate audio fallback or preview to preserve browser user gesture
+  // 2. If no videoId yet, resolve via server asynchronously and play FULL SONG
+  try {
+    const q = `${track.artist} ${track.name}`;
+    const res = await fetch(`/api/resolve-full-song?q=${encodeURIComponent(q)}`);
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.videoId) {
+        videoId = data.videoId;
+        track.youtubeId = videoId;
+
+        // Immediately start FULL SONG playback
+        if (State.currentTrack && State.currentTrack.id === track.id) {
+          if (startYouTube(videoId)) return;
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('Server full-song resolution error:', e);
+  }
+
+  // 3. Fallback to HTML5 audio preview ONLY if YouTube resolution failed completely
   if (track.previewUrl && audio) {
-    // Stop YouTube
     if (ytPlayer && ytReady && typeof ytPlayer.pauseVideo === 'function') {
       try { ytPlayer.pauseVideo(); } catch (_) {}
     }
@@ -1424,41 +1461,7 @@ async function playFullTrack(track) {
     audio.play().catch(err => {
       console.warn('HTML5 audio play blocked by browser gesture policy:', err);
     });
-  }
-
-  // 3. If no videoId yet, resolve via server asynchronously
-  if (!videoId) {
-    try {
-      const q = `${track.artist} ${track.name}`;
-      const res = await fetch(`/api/resolve-full-song?q=${encodeURIComponent(q)}`);
-      if (res.ok) {
-        const data = await res.json();
-        if (data.videoId) {
-          videoId = data.videoId;
-          track.youtubeId = videoId;
-
-          // If track had no previewUrl or if YouTube was preferred and track is still active
-          if (!track.previewUrl && State.currentTrack && State.currentTrack.id === track.id) {
-            if (audio) {
-              audio.pause();
-              audio.currentTime = 0;
-            }
-            if (ytPlayer && ytReady && typeof ytPlayer.loadVideoById === 'function') {
-              State.activeEngine = 'youtube';
-              ytPlayer.loadVideoById(videoId);
-              ytPlayer.playVideo();
-            }
-          }
-        }
-      }
-    } catch (e) {
-      console.warn('Server full-song resolution error:', e);
-    }
-  }
-
-  // 4. Final fallback check if nothing could play
-  if (!videoId && !track.previewUrl) {
-    console.warn('No playable source found for track:', track.name);
+  } else {
     State.isPlaying = false;
     updatePlayerUI();
   }
@@ -2485,7 +2488,16 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     audioEngineEl.addEventListener('ended', () => {
       if (State.activeEngine === 'audio') {
-        console.log('Audio preview ended, advancing to next song...');
+        // If track has full YouTube stream available, seamlessly transition to full song
+        if (State.currentTrack && State.currentTrack.youtubeId && ytPlayer && ytReady) {
+          State.activeEngine = 'youtube';
+          try {
+            ytPlayer.loadVideoById(State.currentTrack.youtubeId);
+            ytPlayer.playVideo();
+            return;
+          } catch (_) {}
+        }
+        console.log('Audio track ended, advancing to next song...');
         logUbiEvent('hitTrackEnded', State.currentTrack ? State.currentTrack.name : 'track');
         playNextTrack();
       }

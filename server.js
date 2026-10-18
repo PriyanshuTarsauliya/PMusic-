@@ -336,7 +336,7 @@ async function resolveFullSong(query) {
       }
     });
     const html = await res.text();
-    const match = html.match(/\/watch\?v=([a-zA-Z0-9_-]{11})/);
+    const match = html.match(/\/watch\?v=([a-zA-Z0-9_-]{11})/) || html.match(/"videoId":"([a-zA-Z0-9_-]{11})"/);
     if (match) {
       const data = { videoId: match[1], query };
       resolveCache.set(cacheKey, data);
