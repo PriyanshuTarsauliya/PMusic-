@@ -325,6 +325,8 @@ const State = {
   queueIndex: 0,
   isShuffle: false,
   isRepeat: false,
+  repeatMode: 'off', // 'off' | 'all' | 'one'
+  followingArtists: new Set(),
   authToken: initialAuth.token,
   currentUser: initialAuth.user,
   currentSearchResults: {
@@ -1542,8 +1544,18 @@ function togglePlayPause() {
 // Queue Next / Previous
 function playNextTrack() {
   if (State.queue.length === 0) return;
+  if (State.repeatMode === 'one' && State.currentTrack) {
+    playFullTrack(State.currentTrack);
+    return;
+  }
   if (State.isShuffle) {
-    State.queueIndex = Math.floor(Math.random() * State.queue.length);
+    if (State.queue.length > 1) {
+      let randIndex;
+      do {
+        randIndex = Math.floor(Math.random() * State.queue.length);
+      } while (randIndex === State.queueIndex);
+      State.queueIndex = randIndex;
+    }
   } else {
     State.queueIndex = (State.queueIndex + 1) % State.queue.length;
   }
@@ -1560,14 +1572,13 @@ function playPrevTrack() {
   renderQueueList();
 }
 
-// "Play All" handler: sets queue to given list and starts track 0
-function playAllSongs(songsList) {
-  if (!songsList || songsList.length === 0) return;
-  State.queue = [...songsList];
-  State.queueIndex = 0;
-  playFullTrack(State.queue[0]);
+// Add a track to the play queue without interrupting current song
+function addToQueue(track) {
+  if (!track) return;
+  State.queue.push(track);
   renderQueueList();
-  logUbiEvent('hitPlayAll', `Queue length: ${State.queue.length}`);
+  showFloatingToast(`Added to queue: ${track.name}`);
+  logUbiEvent('hitAddToQueue', track.name);
 }
 
 function updatePlayerUI() {
@@ -1626,11 +1637,10 @@ function updatePlayerUI() {
     }
   });
 
-  // Sync album detail header play button if visible
-  const albumHeaderPlayPath = document.querySelector('.album-header-play-btn svg path');
-  if (albumHeaderPlayPath) {
-    albumHeaderPlayPath.setAttribute('d', State.isPlaying ? 'M6 19h4V5H6v14zm8-14v14h4V5h-4z' : 'M8 5v14l11-7z');
-  }
+  // Sync all detail header play buttons if visible
+  document.querySelectorAll('.album-header-play-btn svg path, .artist-main-play-btn svg path, .playlist-main-play-btn svg path, .library-main-play-btn svg path').forEach(path => {
+    path.setAttribute('d', State.isPlaying ? 'M6 19h4V5H6v14zm8-14v14h4V5h-4z' : 'M8 5v14l11-7z');
+  });
 
   // Android lockscreen & notification media controls
   updateAndroidMediaSession();
@@ -1712,6 +1722,8 @@ function onSearchInput(e) {
   if (!query) {
     switchView('browse-all');
     document.getElementById('filter-chips-bar').classList.remove('visible');
+    if (typeof NavHistory !== 'undefined') NavHistory.push({ type: 'browse-all' });
+    if (typeof setActiveNav === 'function') setActiveNav('home');
     logUbiEvent('hitUiNavigate', 'spotify:app:search:empty');
     return;
   }
@@ -1840,12 +1852,99 @@ async function executeSearch(query) {
       renderDrilldownResults(State.activeCategory);
       switchView('drilldown');
     }
+    if (typeof NavHistory !== 'undefined') {
+      NavHistory.push({ type: 'results', query: query, category: State.activeCategory });
+    }
+    if (typeof setActiveNav === 'function') setActiveNav('search');
   }
 }
 
 // ==========================================================================
-// 5. VIEW BUILDERS (BROWSE ALL, OVERVIEW, DRILLDOWN)
+// 5. VIEW BUILDERS & NAVIGATION HISTORY ENGINE
 // ==========================================================================
+
+const NavHistory = {
+  stack: [{ type: 'browse-all' }],
+  index: 0,
+  isNavigating: false,
+  push(entry) {
+    if (this.isNavigating) return;
+    const current = this.stack[this.index];
+    if (current && current.type === entry.type && current.query === entry.query && current.id === entry.id) {
+      return;
+    }
+    this.stack = this.stack.slice(0, this.index + 1);
+    this.stack.push(entry);
+    this.index = this.stack.length - 1;
+    this.updateButtons();
+  },
+  back() {
+    if (this.index > 0) {
+      this.index--;
+      this.isNavigating = true;
+      this.restore(this.stack[this.index]);
+      this.isNavigating = false;
+      this.updateButtons();
+    }
+  },
+  forward() {
+    if (this.index < this.stack.length - 1) {
+      this.index++;
+      this.isNavigating = true;
+      this.restore(this.stack[this.index]);
+      this.isNavigating = false;
+      this.updateButtons();
+    }
+  },
+  updateButtons() {
+    const backBtn = document.getElementById('btn-history-back');
+    const fwdBtn = document.getElementById('btn-history-forward');
+    if (backBtn) backBtn.disabled = this.index <= 0;
+    if (fwdBtn) fwdBtn.disabled = this.index >= this.stack.length - 1;
+  },
+  restore(entry) {
+    if (!entry) return;
+    if (entry.type === 'browse-all') {
+      const searchInput = document.getElementById('search-input');
+      if (searchInput) searchInput.value = '';
+      State.query = '';
+      switchView('browse-all');
+      const chips = document.getElementById('filter-chips-bar');
+      if (chips) chips.classList.remove('visible');
+      setActiveNav('home');
+    } else if (entry.type === 'results') {
+      const searchInput = document.getElementById('search-input');
+      if (searchInput) searchInput.value = entry.query || '';
+      State.query = entry.query || '';
+      if (entry.query) executeSearch(entry.query);
+      setActiveNav('search');
+    } else if (entry.type === 'album') {
+      showAlbumDetail(entry.data, false);
+    } else if (entry.type === 'artist') {
+      showArtistDetail(entry.data, false);
+    } else if (entry.type === 'playlist') {
+      showPlaylistDetail(entry.data, false);
+    } else if (entry.type === 'library') {
+      showLibraryDetail(false);
+    } else if (entry.type === 'drilldown') {
+      setCategoryFilter(entry.category, false);
+    }
+  }
+};
+
+function setActiveNav(navName) {
+  const navBtnHome = document.getElementById('nav-btn-home');
+  const navBtnSearch = document.getElementById('nav-btn-search');
+  const mobileHome = document.getElementById('mobile-nav-home');
+  const mobileSearch = document.getElementById('mobile-nav-search');
+  const mobileLib = document.getElementById('mobile-nav-library');
+
+  if (navBtnHome) navBtnHome.classList.toggle('active', navName === 'home');
+  if (navBtnSearch) navBtnSearch.classList.toggle('active', navName === 'search');
+  if (mobileHome) mobileHome.classList.toggle('active', navName === 'home');
+  if (mobileSearch) mobileSearch.classList.toggle('active', navName === 'search');
+  if (mobileLib) mobileLib.classList.toggle('active', navName === 'library');
+}
 
 function switchView(viewName) {
   document.getElementById('view-browse-all').style.display = viewName === 'browse-all' ? 'block' : 'none';
@@ -1990,16 +2089,16 @@ function renderRecentSearches() {
     card.addEventListener('click', () => {
       if (item.type === 'album') {
         showAlbumDetail(item);
-      } else if (!isArtist) {
+      } else if (item.type === 'playlist') {
+        showPlaylistDetail(item);
+      } else if (item.type === 'artist' || isArtist) {
+        showArtistDetail(item);
+      } else {
         if (State.currentTrack && State.currentTrack.id === item.id) {
           togglePlayPause();
         } else {
           playFullTrack(item);
         }
-      } else {
-        const input = document.getElementById('search-input');
-        input.value = title;
-        onSearchInput({ target: input });
       }
       logUbiEvent('hitUiSelect', `recent_search:${title}`);
     });
@@ -2064,9 +2163,9 @@ function renderOverviewResults() {
       if (isAlbum) {
         showAlbumDetail(topResult);
       } else if (isArtist) {
-        setCategoryFilter('artists');
+        showArtistDetail(topResult);
       } else if (isPlaylist) {
-        playPlaylist(topResult);
+        showPlaylistDetail(topResult);
       } else {
         if (State.currentTrack && State.currentTrack.id === topResult.id) {
           togglePlayPause();
@@ -2099,9 +2198,16 @@ function renderOverviewResults() {
         </div>
         <div class="track-row-col-main">
           <div class="track-title">${track.name}</div>
-          <div class="track-subtitle">${track.artist} • ${track.album}</div>
+          <div class="track-subtitle">
+            <span class="clickable-artist-link">${track.artist}</span> • <span class="clickable-album-link">${track.album}</span>
+          </div>
         </div>
         <div class="track-row-col-end">
+          <button class="track-queue-btn" title="Add to Queue">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M15 6H3v2h12V6zm0 4H3v2h12v-2zM3 16h8v-2H3v2zM17 6v8.18c-.31-.11-.65-.18-1-.18-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3V8h3V6h-5z"/>
+            </svg>
+          </button>
           <button class="track-heart-btn ${isLiked ? 'liked' : ''}" title="Save to Your Library">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
           </button>
@@ -2110,6 +2216,21 @@ function renderOverviewResults() {
       `;
 
       row.addEventListener('click', (e) => {
+        if (e.target.closest('.track-queue-btn')) {
+          e.stopPropagation();
+          addToQueue(track);
+          return;
+        }
+        if (e.target.closest('.clickable-artist-link')) {
+          e.stopPropagation();
+          showArtistDetail({ name: track.artist });
+          return;
+        }
+        if (e.target.closest('.clickable-album-link')) {
+          e.stopPropagation();
+          showAlbumDetail({ title: track.album, artist: track.artist, artwork: track.artwork });
+          return;
+        }
         if (e.target.closest('.track-heart-btn')) {
           toggleLikeTrack(track.id);
           return;
@@ -2156,7 +2277,7 @@ function renderOverviewResults() {
   // 3. Shelves
   renderShelf('shelf-artists-section', 'shelf-artists-grid', artists, true, (a) => {
     addRecentItem(a);
-    playArtist(a);
+    showArtistDetail(a);
   });
 
   renderShelf('shelf-albums-section', 'shelf-albums-grid', albums, false, (al) => {
@@ -2164,7 +2285,7 @@ function renderOverviewResults() {
   });
 
   renderShelf('shelf-playlists-section', 'shelf-playlists-grid', playlists, false, (p) => {
-    playPlaylist(p);
+    showPlaylistDetail(p);
   });
 }
 
@@ -2435,8 +2556,12 @@ async function playArtist(artist) {
   }
 }
 
-async function showAlbumDetail(album) {
+async function showAlbumDetail(album, pushHistory = true) {
   if (!album) return;
+  if (pushHistory && typeof NavHistory !== 'undefined') {
+    NavHistory.push({ type: 'album', data: album });
+  }
+
   addRecentItem(album);
   logUbiEvent('hitAlbumDetail', album.title);
 
@@ -2460,9 +2585,9 @@ async function showAlbumDetail(album) {
       <img src="${album.artwork || album.image}" alt="${album.title}" style="width:200px; height:200px; border-radius:8px; object-fit:cover; box-shadow: 0 8px 24px rgba(0,0,0,0.5);">
       <div style="display:flex; flex-direction:column; gap:8px;">
         <span style="font-size:0.75rem; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:var(--spotify-subdued);">Album</span>
-        <h1 style="font-size:2.2rem; font-weight:800; line-height:1.1; margin:0; color:var(--spotify-white);">${album.title}</h1>
+        <h1 style="font-size:clamp(1.8rem, 4vw, 2.6rem); font-weight:800; line-height:1.1; margin:0; color:var(--spotify-white);">${album.title}</h1>
         <div style="font-size:0.9rem; color:var(--spotify-subdued); display:flex; align-items:center; gap:8px; margin-top:4px;">
-          <span style="font-weight:700; color:var(--spotify-white);">${album.artist}</span>
+          <span style="font-weight:700; color:var(--spotify-white);" class="clickable-artist-link" id="album-artist-link">${album.artist}</span>
           <span>•</span>
           <span>${album.year || '2025'}</span>
           <span>•</span>
@@ -2474,8 +2599,8 @@ async function showAlbumDetail(album) {
               <path d="${isPlayingThis ? 'M6 19h4V5H6v14zm8-14v14h4V5h-4z' : 'M8 5v14l11-7z'}"/>
             </svg>
           </button>
-          <button class="album-back-btn" style="background:transparent; border:1px solid rgba(255,255,255,0.2); color:var(--spotify-white); padding:8px 18px; border-radius:20px; font-size:0.85rem; font-weight:600; cursor:pointer;">
-            &larr; Back to Results
+          <button class="album-back-btn" id="btn-album-back" style="background:transparent; border:1px solid rgba(255,255,255,0.2); color:var(--spotify-white); padding:8px 18px; border-radius:20px; font-size:0.85rem; font-weight:600; cursor:pointer;">
+            &larr; Back
           </button>
         </div>
       </div>
@@ -2486,6 +2611,7 @@ async function showAlbumDetail(album) {
           <th style="width:40px; text-align:center;">#</th>
           <th>Title</th>
           <th>Artist</th>
+          <th style="width:50px; text-align:center;">Queue</th>
           <th style="width:80px; text-align:right;">Duration</th>
         </tr>
       </thead>
@@ -2498,11 +2624,14 @@ async function showAlbumDetail(album) {
     headerPlayBtn.onclick = () => playAlbum(album);
   }
 
-  const backBtn = container.querySelector('.album-back-btn');
+  const backBtn = container.querySelector('#btn-album-back');
   if (backBtn) {
-    backBtn.onclick = () => {
-      setCategoryFilter('all');
-    };
+    backBtn.onclick = () => NavHistory.back();
+  }
+
+  const artistLink = container.querySelector('#album-artist-link');
+  if (artistLink) {
+    artistLink.onclick = () => showArtistDetail({ name: album.artist });
   }
 
   const tbody = container.querySelector('tbody');
@@ -2517,15 +2646,34 @@ async function showAlbumDetail(album) {
           <img src="${track.artwork || album.artwork}" style="width:40px; height:40px; border-radius:4px; object-fit:cover;" loading="lazy">
           <div>
             <div class="table-song-title" style="font-weight:600; color:${isCurrent ? 'var(--spotify-green)' : 'var(--spotify-white)'};">${track.name}</div>
-            <div style="font-size:0.8rem; color:var(--spotify-subdued);">${track.artist}</div>
+            <div style="font-size:0.8rem; color:var(--spotify-subdued);" class="clickable-artist-link">${track.artist}</div>
           </div>
         </div>
       </td>
-      <td style="color:var(--spotify-subdued);">${track.artist}</td>
+      <td style="color:var(--spotify-subdued);">
+        <span class="clickable-artist-link">${track.artist}</span>
+      </td>
+      <td style="text-align:center;">
+        <button class="track-queue-btn" title="Add to Queue">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M15 6H3v2h12V6zm0 4H3v2h12v-2zM3 16h8v-2H3v2zM17 6v8.18c-.31-.11-.65-.18-1-.18-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3V8h3V6h-5z"/>
+          </svg>
+        </button>
+      </td>
       <td style="text-align:right; color:var(--spotify-subdued); font-variant-numeric:tabular-nums;">${track.durationFormatted || '3:20'}</td>
     `;
 
-    row.addEventListener('click', () => {
+    row.addEventListener('click', (e) => {
+      if (e.target.closest('.track-queue-btn')) {
+        e.stopPropagation();
+        addToQueue(track);
+        return;
+      }
+      if (e.target.closest('.clickable-artist-link')) {
+        e.stopPropagation();
+        showArtistDetail({ name: track.artist });
+        return;
+      }
       if (State.currentTrack && State.currentTrack.id === track.id) {
         togglePlayPause();
         return;
@@ -2540,6 +2688,486 @@ async function showAlbumDetail(album) {
 
     tbody.appendChild(row);
   });
+}
+
+async function showArtistDetail(artist, pushHistory = true) {
+  if (!artist) return;
+  const artistName = typeof artist === 'string' ? artist : (artist.name || artist.title || 'Artist');
+  const artistObj = typeof artist === 'object' ? artist : { id: `artist-${artistName.toLowerCase().replace(/\s+/g, '-')}`, name: artistName };
+
+  if (pushHistory && typeof NavHistory !== 'undefined') {
+    NavHistory.push({ type: 'artist', data: artistObj });
+  }
+
+  addRecentItem(artistObj);
+  logUbiEvent('hitArtistDetail', artistName);
+
+  const container = document.getElementById('drilldown-content-container');
+  const titleElem = document.getElementById('drilldown-title');
+  if (!container || !titleElem) return;
+
+  titleElem.textContent = artistName;
+  container.innerHTML = `
+    <div style="display:flex; align-items:center; justify-content:center; padding: 60px 0;">
+      <div class="loader-spinner" style="width:38px; height:38px; border:3px solid rgba(255,255,255,0.15); border-top-color:var(--spotify-green); border-radius:50%; animation:spin 0.8s linear infinite;"></div>
+    </div>
+  `;
+  switchView('drilldown');
+
+  const tracks = await getArtistTracks(artistObj);
+  const isPlayingThis = State.currentPlayingContext && State.currentPlayingContext.id === artistObj.id && State.isPlaying;
+  const isFollowing = State.followingArtists.has(artistName);
+
+  const artistImg = artistObj.image || (tracks[0] ? tracks[0].artwork : 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=400&auto=format&fit=crop&q=80');
+
+  const artistAlbums = (State.currentSearchResults?.albums || []).filter(al => 
+    al.artist && al.artist.toLowerCase().includes(artistName.toLowerCase())
+  );
+  if (artistAlbums.length === 0 && typeof CURATED_ALBUMS !== 'undefined') {
+    const cur = CURATED_ALBUMS.filter(al => al.artist && al.artist.toLowerCase().includes(artistName.toLowerCase()));
+    if (cur.length > 0) artistAlbums.push(...cur);
+  }
+
+  container.innerHTML = `
+    <div class="artist-detail-header">
+      <img class="artist-avatar-img" src="${artistImg}" alt="${artistName}">
+      <div style="display:flex; flex-direction:column; gap:6px;">
+        <div class="artist-verified-row">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+          </svg>
+          <span>Verified Artist</span>
+        </div>
+        <h1 class="artist-title-text">${artistName}</h1>
+        <div class="artist-listeners-text">
+          <span>74,831,020 monthly listeners</span>
+        </div>
+        <div class="artist-action-bar">
+          <button class="album-header-play-btn artist-main-play-btn" style="width:56px; height:56px; border-radius:50%; background:var(--spotify-green); border:none; display:flex; align-items:center; justify-content:center; cursor:pointer; box-shadow:0 8px 16px rgba(0,0,0,0.3); transition: transform 0.2s, background 0.2s;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="#000">
+              <path d="${isPlayingThis ? 'M6 19h4V5H6v14zm8-14v14h4V5h-4z' : 'M8 5v14l11-7z'}"/>
+            </svg>
+          </button>
+          <button class="artist-follow-btn ${isFollowing ? 'following' : ''}" id="btn-artist-follow">
+            ${isFollowing ? 'Following' : 'Follow'}
+          </button>
+          <button class="album-back-btn" id="btn-artist-back" style="background:transparent; border:1px solid rgba(255,255,255,0.2); color:var(--spotify-white); padding:8px 18px; border-radius:20px; font-size:0.85rem; font-weight:600; cursor:pointer;">
+            &larr; Back
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <h2 class="detail-section-title">Popular</h2>
+    <table class="full-tracklist-table" style="margin-bottom: 32px;">
+      <thead>
+        <tr>
+          <th style="width:40px; text-align:center;">#</th>
+          <th>Title</th>
+          <th>Album</th>
+          <th style="width:50px; text-align:center;">Queue</th>
+          <th style="width:80px; text-align:right;">Duration</th>
+        </tr>
+      </thead>
+      <tbody id="artist-popular-tbody"></tbody>
+    </table>
+
+    ${artistAlbums.length > 0 ? `
+      <h2 class="detail-section-title">Discography</h2>
+      <div class="shelf-cards-grid" id="artist-albums-grid"></div>
+    ` : ''}
+  `;
+
+  const playBtn = container.querySelector('.artist-main-play-btn');
+  if (playBtn) playBtn.onclick = () => playArtist(artistObj);
+
+  const followBtn = container.querySelector('#btn-artist-follow');
+  if (followBtn) {
+    followBtn.onclick = () => {
+      if (State.followingArtists.has(artistName)) {
+        State.followingArtists.delete(artistName);
+        followBtn.classList.remove('following');
+        followBtn.textContent = 'Follow';
+        showFloatingToast(`Unfollowed ${artistName}`);
+      } else {
+        State.followingArtists.add(artistName);
+        followBtn.classList.add('following');
+        followBtn.textContent = 'Following';
+        showFloatingToast(`Following ${artistName}`);
+      }
+    };
+  }
+
+  const backBtn = container.querySelector('#btn-artist-back');
+  if (backBtn) backBtn.onclick = () => NavHistory.back();
+
+  const tbody = container.querySelector('#artist-popular-tbody');
+  tracks.slice(0, 10).forEach((track, index) => {
+    const isCurrent = State.currentTrack && State.currentTrack.id === track.id;
+    const row = document.createElement('tr');
+    row.className = `full-table-row ${isCurrent ? 'active' : ''}`;
+    row.innerHTML = `
+      <td style="text-align:center; color:var(--spotify-subdued);">${index + 1}</td>
+      <td>
+        <div style="display:flex; align-items:center; gap:12px;">
+          <img src="${track.artwork}" style="width:40px; height:40px; border-radius:4px; object-fit:cover;" loading="lazy">
+          <div>
+            <div class="table-song-title" style="font-weight:600; color:${isCurrent ? 'var(--spotify-green)' : 'var(--spotify-white)'};">${track.name}</div>
+            <div style="font-size:0.8rem; color:var(--spotify-subdued);">${track.artist}</div>
+          </div>
+        </div>
+      </td>
+      <td style="color:var(--spotify-subdued);">
+        <span class="clickable-album-link">${track.album || 'Single'}</span>
+      </td>
+      <td style="text-align:center;">
+        <button class="track-queue-btn" title="Add to Queue">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M15 6H3v2h12V6zm0 4H3v2h12v-2zM3 16h8v-2H3v2zM17 6v8.18c-.31-.11-.65-.18-1-.18-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3V8h3V6h-5z"/>
+          </svg>
+        </button>
+      </td>
+      <td style="text-align:right; color:var(--spotify-subdued); font-variant-numeric:tabular-nums;">${track.durationFormatted || '3:20'}</td>
+    `;
+
+    row.addEventListener('click', (e) => {
+      if (e.target.closest('.track-queue-btn')) {
+        e.stopPropagation();
+        addToQueue(track);
+        return;
+      }
+      if (e.target.closest('.clickable-album-link')) {
+        e.stopPropagation();
+        showAlbumDetail({ title: track.album, artist: track.artist, artwork: track.artwork });
+        return;
+      }
+      if (State.currentTrack && State.currentTrack.id === track.id) {
+        togglePlayPause();
+        return;
+      }
+      State.currentPlayingContext = { type: 'artist', id: artistObj.id, title: artistName };
+      State.queue = [...tracks];
+      State.queueIndex = index;
+      renderQueueList();
+      playFullTrack(track);
+      addRecentItem(track);
+    });
+
+    tbody.appendChild(row);
+  });
+
+  const albumsGrid = container.querySelector('#artist-albums-grid');
+  if (albumsGrid && artistAlbums.length > 0) {
+    artistAlbums.forEach(al => {
+      const isPlayingAl = State.currentPlayingContext && State.currentPlayingContext.id === al.id && State.isPlaying;
+      const card = document.createElement('div');
+      card.className = 'shelf-card';
+      card.setAttribute('data-id', al.id);
+      card.innerHTML = `
+        <div class="shelf-card-art-box">
+          <img class="shelf-card-art" src="${al.artwork || al.image}" alt="${al.title}" loading="lazy">
+        </div>
+        <div class="shelf-card-title">${al.title}</div>
+        <div class="shelf-card-desc">${al.year || ''} • Album</div>
+        <button class="card-floating-play-btn ${isPlayingAl ? 'is-active' : ''}" title="Play ${al.title}">
+          <svg viewBox="0 0 24 24"><path d="${isPlayingAl ? 'M6 19h4V5H6v14zm8-14v14h4V5h-4z' : 'M8 5v14l11-7z'}"/></svg>
+        </button>
+      `;
+      const pBtn = card.querySelector('.card-floating-play-btn');
+      if (pBtn) {
+        pBtn.onclick = (e) => {
+          e.stopPropagation();
+          playAlbum(al);
+        };
+      }
+      card.onclick = () => showAlbumDetail(al);
+      albumsGrid.appendChild(card);
+    });
+  }
+}
+
+async function showPlaylistDetail(playlist, pushHistory = true) {
+  if (!playlist) return;
+  if (pushHistory && typeof NavHistory !== 'undefined') {
+    NavHistory.push({ type: 'playlist', data: playlist });
+  }
+
+  addRecentItem(playlist);
+  logUbiEvent('hitPlaylistDetail', playlist.title);
+
+  const container = document.getElementById('drilldown-content-container');
+  const titleElem = document.getElementById('drilldown-title');
+  if (!container || !titleElem) return;
+
+  titleElem.textContent = playlist.title;
+  container.innerHTML = `
+    <div style="display:flex; align-items:center; justify-content:center; padding: 60px 0;">
+      <div class="loader-spinner" style="width:38px; height:38px; border:3px solid rgba(255,255,255,0.15); border-top-color:var(--spotify-green); border-radius:50%; animation:spin 0.8s linear infinite;"></div>
+    </div>
+  `;
+  switchView('drilldown');
+
+  const tracks = await getPlaylistTracks(playlist);
+  const isPlayingThis = State.currentPlayingContext && State.currentPlayingContext.id === playlist.id && State.isPlaying;
+
+  container.innerHTML = `
+    <div class="playlist-detail-header">
+      <img class="playlist-cover-img" src="${playlist.artwork || playlist.image}" alt="${playlist.title}">
+      <div style="display:flex; flex-direction:column; gap:6px;">
+        <span style="font-size:0.75rem; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:var(--spotify-subdued);">Public Playlist</span>
+        <h1 style="font-size:clamp(1.8rem, 4vw, 2.6rem); font-weight:800; line-height:1.1; margin:0; color:var(--spotify-white);">${playlist.title}</h1>
+        <div style="font-size:0.9rem; color:var(--spotify-subdued); display:flex; align-items:center; gap:8px; margin-top:4px;">
+          <span style="font-weight:700; color:var(--spotify-white);">${playlist.curator || 'Spotify'}</span>
+          <span>•</span>
+          <span>${tracks.length} songs</span>
+        </div>
+        <div style="display:flex; align-items:center; gap:16px; margin-top:16px;">
+          <button class="album-header-play-btn playlist-main-play-btn" style="width:56px; height:56px; border-radius:50%; background:var(--spotify-green); border:none; display:flex; align-items:center; justify-content:center; cursor:pointer; box-shadow:0 8px 16px rgba(0,0,0,0.3); transition: transform 0.2s, background 0.2s;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="#000">
+              <path d="${isPlayingThis ? 'M6 19h4V5H6v14zm8-14v14h4V5h-4z' : 'M8 5v14l11-7z'}"/>
+            </svg>
+          </button>
+          <button class="album-back-btn" id="btn-playlist-back" style="background:transparent; border:1px solid rgba(255,255,255,0.2); color:var(--spotify-white); padding:8px 18px; border-radius:20px; font-size:0.85rem; font-weight:600; cursor:pointer;">
+            &larr; Back
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <table class="full-tracklist-table">
+      <thead>
+        <tr>
+          <th style="width:40px; text-align:center;">#</th>
+          <th>Title</th>
+          <th>Album</th>
+          <th style="width:50px; text-align:center;">Queue</th>
+          <th style="width:80px; text-align:right;">Duration</th>
+        </tr>
+      </thead>
+      <tbody id="playlist-tracks-tbody"></tbody>
+    </table>
+  `;
+
+  const playBtn = container.querySelector('.playlist-main-play-btn');
+  if (playBtn) playBtn.onclick = () => playPlaylist(playlist);
+
+  const backBtn = container.querySelector('#btn-playlist-back');
+  if (backBtn) backBtn.onclick = () => NavHistory.back();
+
+  const tbody = container.querySelector('#playlist-tracks-tbody');
+  tracks.forEach((track, index) => {
+    const isCurrent = State.currentTrack && State.currentTrack.id === track.id;
+    const row = document.createElement('tr');
+    row.className = `full-table-row ${isCurrent ? 'active' : ''}`;
+    row.innerHTML = `
+      <td style="text-align:center; color:var(--spotify-subdued);">${index + 1}</td>
+      <td>
+        <div style="display:flex; align-items:center; gap:12px;">
+          <img src="${track.artwork}" style="width:40px; height:40px; border-radius:4px; object-fit:cover;" loading="lazy">
+          <div>
+            <div class="table-song-title" style="font-weight:600; color:${isCurrent ? 'var(--spotify-green)' : 'var(--spotify-white)'};">${track.name}</div>
+            <div style="font-size:0.8rem; color:var(--spotify-subdued);" class="clickable-artist-link">${track.artist}</div>
+          </div>
+        </div>
+      </td>
+      <td style="color:var(--spotify-subdued);">
+        <span class="clickable-album-link">${track.album || 'Single'}</span>
+      </td>
+      <td style="text-align:center;">
+        <button class="track-queue-btn" title="Add to Queue">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M15 6H3v2h12V6zm0 4H3v2h12v-2zM3 16h8v-2H3v2zM17 6v8.18c-.31-.11-.65-.18-1-.18-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3V8h3V6h-5z"/>
+          </svg>
+        </button>
+      </td>
+      <td style="text-align:right; color:var(--spotify-subdued); font-variant-numeric:tabular-nums;">${track.durationFormatted || '3:20'}</td>
+    `;
+
+    row.addEventListener('click', (e) => {
+      if (e.target.closest('.track-queue-btn')) {
+        e.stopPropagation();
+        addToQueue(track);
+        return;
+      }
+      if (e.target.closest('.clickable-artist-link')) {
+        e.stopPropagation();
+        showArtistDetail({ name: track.artist });
+        return;
+      }
+      if (e.target.closest('.clickable-album-link')) {
+        e.stopPropagation();
+        showAlbumDetail({ title: track.album, artist: track.artist, artwork: track.artwork });
+        return;
+      }
+      if (State.currentTrack && State.currentTrack.id === track.id) {
+        togglePlayPause();
+        return;
+      }
+      State.currentPlayingContext = { type: 'playlist', id: playlist.id, title: playlist.title };
+      State.queue = [...tracks];
+      State.queueIndex = index;
+      renderQueueList();
+      playFullTrack(track);
+      addRecentItem(track);
+    });
+
+    tbody.appendChild(row);
+  });
+}
+
+function showLibraryDetail(pushHistory = true) {
+  if (pushHistory && typeof NavHistory !== 'undefined') {
+    NavHistory.push({ type: 'library' });
+  }
+
+  logUbiEvent('hitLibraryDetail', `tracks=${State.libraryTracks.length}`);
+
+  const container = document.getElementById('drilldown-content-container');
+  const titleElem = document.getElementById('drilldown-title');
+  if (!container || !titleElem) return;
+
+  const isPlayingThis = State.currentPlayingContext && State.currentPlayingContext.id === 'user_library' && State.isPlaying;
+  const userName = State.currentUser ? State.currentUser.username : 'User';
+
+  titleElem.textContent = 'Liked Songs';
+  switchView('drilldown');
+
+  container.innerHTML = `
+    <div class="library-hero-gradient">
+      <div class="library-heart-artwork">
+        <svg width="64" height="64" viewBox="0 0 24 24" fill="#ffffff">
+          <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+        </svg>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:6px;">
+        <span style="font-size:0.75rem; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:rgba(255,255,255,0.8);">Playlist</span>
+        <h1 style="font-size:clamp(2rem, 5vw, 3.2rem); font-weight:900; line-height:1.05; margin:0; color:#fff;">Liked Songs</h1>
+        <div style="font-size:0.9rem; color:rgba(255,255,255,0.85); display:flex; align-items:center; gap:8px; margin-top:4px;">
+          <span style="font-weight:700; color:#fff;">${userName}</span>
+          <span>•</span>
+          <span>${State.libraryTracks.length} saved songs</span>
+        </div>
+        <div style="display:flex; align-items:center; gap:16px; margin-top:16px;">
+          <button class="album-header-play-btn library-main-play-btn" style="width:56px; height:56px; border-radius:50%; background:var(--spotify-green); border:none; display:flex; align-items:center; justify-content:center; cursor:pointer; box-shadow:0 8px 16px rgba(0,0,0,0.3); transition: transform 0.2s, background 0.2s;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="#000">
+              <path d="${isPlayingThis ? 'M6 19h4V5H6v14zm8-14v14h4V5h-4z' : 'M8 5v14l11-7z'}"/>
+            </svg>
+          </button>
+          <button class="chat-action-btn secondary" id="btn-lib-open-chat" style="background:rgba(255,255,255,0.15); border:none; color:#fff; padding:10px 20px; border-radius:500px; font-weight:700; font-size:0.85rem; cursor:pointer;">
+            + Add Songs via Chat
+          </button>
+          <button class="album-back-btn" id="btn-library-back" style="background:transparent; border:1px solid rgba(255,255,255,0.3); color:#fff; padding:8px 18px; border-radius:20px; font-size:0.85rem; font-weight:600; cursor:pointer;">
+            &larr; Back
+          </button>
+        </div>
+      </div>
+    </div>
+
+    ${State.libraryTracks.length === 0 ? `
+      <div style="text-align:center; padding: 48px 20px; color:var(--spotify-subdued);">
+        <h3 style="color:#fff; font-size:1.2rem; margin-bottom:8px;">Your library is currently empty</h3>
+        <p style="font-size:0.9rem; max-width:420px; margin:0 auto 20px auto;">Save songs using the heart icon on any song, or use our Chat Importer to paste lists of your favorite tracks!</p>
+        <button class="feedback-submit-btn" id="btn-empty-lib-chat" style="margin:0 auto; padding:10px 24px;">Import Songs Now</button>
+      </div>
+    ` : `
+      <table class="full-tracklist-table">
+        <thead>
+          <tr>
+            <th style="width:40px; text-align:center;">#</th>
+            <th>Title</th>
+            <th>Album</th>
+            <th style="width:40px; text-align:center;">Like</th>
+            <th style="width:80px; text-align:right;">Duration</th>
+          </tr>
+        </thead>
+        <tbody id="library-tracks-tbody"></tbody>
+      </table>
+    `}
+  `;
+
+  const playBtn = container.querySelector('.library-main-play-btn');
+  if (playBtn) {
+    playBtn.onclick = () => {
+      if (State.libraryTracks.length > 0) {
+        State.currentPlayingContext = { type: 'library', id: 'user_library', title: 'Liked Songs' };
+        playAllSongs(State.libraryTracks);
+      } else {
+        playAllSongs(CURATED_TRACKS);
+      }
+    };
+  }
+
+  const chatBtn = container.querySelector('#btn-lib-open-chat');
+  if (chatBtn) chatBtn.onclick = openChatModal;
+
+  const emptyChatBtn = container.querySelector('#btn-empty-lib-chat');
+  if (emptyChatBtn) emptyChatBtn.onclick = openChatModal;
+
+  const backBtn = container.querySelector('#btn-library-back');
+  if (backBtn) backBtn.onclick = () => NavHistory.back();
+
+  const tbody = container.querySelector('#library-tracks-tbody');
+  if (tbody) {
+    State.libraryTracks.forEach((track, index) => {
+      const isCurrent = State.currentTrack && State.currentTrack.id === track.id;
+      const row = document.createElement('tr');
+      row.className = `full-table-row ${isCurrent ? 'active' : ''}`;
+      row.innerHTML = `
+        <td style="text-align:center; color:var(--spotify-subdued);">${index + 1}</td>
+        <td>
+          <div style="display:flex; align-items:center; gap:12px;">
+            <img src="${track.artwork || ''}" style="width:40px; height:40px; border-radius:4px; object-fit:cover;" loading="lazy">
+            <div>
+              <div class="table-song-title" style="font-weight:600; color:${isCurrent ? 'var(--spotify-green)' : 'var(--spotify-white)'};">${track.name}</div>
+              <div style="font-size:0.8rem; color:var(--spotify-subdued);" class="clickable-artist-link">${track.artist}</div>
+            </div>
+          </div>
+        </td>
+        <td style="color:var(--spotify-subdued);">
+          <span class="clickable-album-link">${track.album || 'Single'}</span>
+        </td>
+        <td style="text-align:center;">
+          <button class="track-heart-btn liked" title="Remove from Library">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+            </svg>
+          </button>
+        </td>
+        <td style="text-align:right; color:var(--spotify-subdued); font-variant-numeric:tabular-nums;">${track.durationFormatted || '3:20'}</td>
+      `;
+
+      row.addEventListener('click', (e) => {
+        if (e.target.closest('.track-heart-btn')) {
+          e.stopPropagation();
+          removeTrackFromLibrary(track.id);
+          showLibraryDetail(false);
+          return;
+        }
+        if (e.target.closest('.clickable-artist-link')) {
+          e.stopPropagation();
+          showArtistDetail({ name: track.artist });
+          return;
+        }
+        if (e.target.closest('.clickable-album-link')) {
+          e.stopPropagation();
+          showAlbumDetail({ title: track.album, artist: track.artist, artwork: track.artwork });
+          return;
+        }
+        if (State.currentTrack && State.currentTrack.id === track.id) {
+          togglePlayPause();
+          return;
+        }
+        State.currentPlayingContext = { type: 'library', id: 'user_library', title: 'Liked Songs' };
+        State.queue = [...State.libraryTracks];
+        State.queueIndex = index;
+        renderQueueList();
+        playFullTrack(track);
+        addRecentItem(track);
+      });
+
+      tbody.appendChild(row);
+    });
+  }
 }
 
 function renderShelf(sectionId, gridId, items, isCircle, onClick) {
@@ -2636,15 +3264,27 @@ function renderDrilldownResults(category) {
             <img src="${track.artwork}" style="width:40px; height:40px; border-radius:4px; object-fit:cover;" loading="lazy" decoding="async">
             <div>
               <div class="table-song-title" style="font-weight:600; color:${isCurrent ? 'var(--spotify-green)' : 'var(--spotify-white)'};">${track.name}</div>
-              <div style="font-size:0.8rem; color:var(--spotify-subdued);">${track.artist}</div>
+              <div style="font-size:0.8rem; color:var(--spotify-subdued);" class="clickable-artist-link">${track.artist}</div>
             </div>
           </div>
         </td>
-        <td style="color:var(--spotify-subdued);">${track.album || 'Single'}</td>
+        <td style="color:var(--spotify-subdued);">
+          <span class="clickable-album-link">${track.album || 'Single'}</span>
+        </td>
         <td style="text-align:right; color:var(--spotify-subdued); font-variant-numeric:tabular-nums;">${track.durationFormatted}</td>
       `;
 
-      row.addEventListener('click', () => {
+      row.addEventListener('click', (e) => {
+        if (e.target.closest('.clickable-artist-link')) {
+          e.stopPropagation();
+          showArtistDetail({ name: track.artist });
+          return;
+        }
+        if (e.target.closest('.clickable-album-link')) {
+          e.stopPropagation();
+          showAlbumDetail({ title: track.album, artist: track.artist, artwork: track.artwork });
+          return;
+        }
         if (State.currentTrack && State.currentTrack.id === track.id) {
           togglePlayPause();
           return;
@@ -2687,7 +3327,7 @@ function renderDrilldownResults(category) {
       }
 
       card.addEventListener('click', () => {
-        playArtist(a);
+        showArtistDetail(a);
       });
       grid.appendChild(card);
     });
@@ -2754,7 +3394,7 @@ function renderDrilldownResults(category) {
         };
       }
 
-      card.onclick = () => playPlaylist(p);
+      card.onclick = () => showPlaylistDetail(p);
       grid.appendChild(card);
     });
     container.appendChild(grid);
@@ -2881,6 +3521,7 @@ document.addEventListener('DOMContentLoaded', () => {
     shuffleBtn.addEventListener('click', () => {
       State.isShuffle = !State.isShuffle;
       shuffleBtn.style.color = State.isShuffle ? 'var(--spotify-green)' : 'var(--spotify-subdued)';
+      showFloatingToast(State.isShuffle ? 'Shuffle On' : 'Shuffle Off');
       logUbiEvent('hitShuffleToggle', `enabled=${State.isShuffle}`);
     });
   }
@@ -2888,9 +3529,26 @@ document.addEventListener('DOMContentLoaded', () => {
   const repeatBtn = document.getElementById('btn-repeat');
   if (repeatBtn) {
     repeatBtn.addEventListener('click', () => {
-      State.isRepeat = !State.isRepeat;
-      repeatBtn.style.color = State.isRepeat ? 'var(--spotify-green)' : 'var(--spotify-subdued)';
-      logUbiEvent('hitRepeatToggle', `enabled=${State.isRepeat}`);
+      if (State.repeatMode === 'off') {
+        State.repeatMode = 'all';
+        repeatBtn.classList.remove('repeat-one');
+        repeatBtn.style.color = 'var(--spotify-green)';
+        repeatBtn.title = 'Repeat All (click for Repeat One)';
+        showFloatingToast('Repeat All');
+      } else if (State.repeatMode === 'all') {
+        State.repeatMode = 'one';
+        repeatBtn.classList.add('repeat-one');
+        repeatBtn.style.color = 'var(--spotify-green)';
+        repeatBtn.title = 'Repeat One (click to turn off)';
+        showFloatingToast('Repeat One');
+      } else {
+        State.repeatMode = 'off';
+        repeatBtn.classList.remove('repeat-one');
+        repeatBtn.style.color = 'var(--spotify-subdued)';
+        repeatBtn.title = 'Repeat Off';
+        showFloatingToast('Repeat Off');
+      }
+      logUbiEvent('hitRepeatToggle', `mode=${State.repeatMode}`);
     });
   }
 
@@ -2898,6 +3556,16 @@ document.addEventListener('DOMContentLoaded', () => {
   if (playerHeart) {
     playerHeart.addEventListener('click', () => {
       if (State.currentTrack) toggleLikeTrack(State.currentTrack.id);
+    });
+  }
+
+  const playerArtistEl = document.getElementById('player-track-artist');
+  if (playerArtistEl) {
+    playerArtistEl.classList.add('clickable-artist-link');
+    playerArtistEl.addEventListener('click', () => {
+      if (State.currentTrack && State.currentTrack.artist) {
+        showArtistDetail({ name: State.currentTrack.artist });
+      }
     });
   }
 
@@ -2977,15 +3645,20 @@ document.addEventListener('DOMContentLoaded', () => {
     timelineBar.addEventListener('pointercancel', finishTimelineSeek);
   }
 
-  // Smooth interactive volume scrubber (Click + Drag / Touch scrub)
+  // Smooth interactive volume scrubber & Mute Toggle
   const volumeBar = document.getElementById('volume-bar');
   const volumeFill = document.getElementById('volume-fill');
   const volumeHandle = document.getElementById('volume-handle');
+  const muteBtn = document.getElementById('btn-mute');
 
-  function updateVolumeScrubber(e) {
-    if (!volumeBar) return 0.8;
-    const rect = volumeBar.getBoundingClientRect();
-    const val = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+  let currentVolume = 0.8;
+  let lastNonZeroVolume = 0.8;
+  let isMuted = false;
+
+  function setPlayerVolume(val) {
+    val = Math.max(0, Math.min(1, val));
+    currentVolume = val;
+    isMuted = val === 0;
     const pct = val * 100;
     if (volumeFill) volumeFill.style.width = `${pct}%`;
     if (volumeHandle) volumeHandle.style.left = `${pct}%`;
@@ -2997,7 +3670,48 @@ document.addEventListener('DOMContentLoaded', () => {
     if (audio) {
       audio.volume = val;
     }
+
+    if (muteBtn) {
+      const iconPath = muteBtn.querySelector('svg path');
+      if (iconPath) {
+        if (isMuted) {
+          iconPath.setAttribute('d', 'M4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z');
+          muteBtn.style.color = 'var(--spotify-subdued)';
+          muteBtn.title = 'Unmute';
+        } else if (val < 0.5) {
+          iconPath.setAttribute('d', 'M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z');
+          muteBtn.style.color = 'var(--spotify-white)';
+          muteBtn.title = 'Mute';
+        } else {
+          iconPath.setAttribute('d', 'M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z');
+          muteBtn.style.color = 'var(--spotify-white)';
+          muteBtn.title = 'Mute';
+        }
+      }
+    }
     return val;
+  }
+
+  function updateVolumeScrubber(e) {
+    if (!volumeBar) return 0.8;
+    const rect = volumeBar.getBoundingClientRect();
+    const val = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    if (val > 0) lastNonZeroVolume = val;
+    setPlayerVolume(val);
+    return val;
+  }
+
+  if (muteBtn) {
+    muteBtn.addEventListener('click', () => {
+      if (isMuted || currentVolume === 0) {
+        setPlayerVolume(lastNonZeroVolume > 0 ? lastNonZeroVolume : 0.8);
+        showFloatingToast('Sound Unmuted');
+      } else {
+        lastNonZeroVolume = currentVolume > 0 ? currentVolume : 0.8;
+        setPlayerVolume(0);
+        showFloatingToast('Muted');
+      }
+    });
   }
 
   if (volumeBar) {
@@ -3128,16 +3842,48 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Navigation back button
+  // Navigation history buttons (Back & Forward)
   const backBtn = document.getElementById('btn-history-back');
   if (backBtn) {
-    backBtn.addEventListener('click', () => {
-      if (State.activeCategory !== 'all') {
-        setCategoryFilter('all');
-      } else {
-        searchInput.value = '';
-        onSearchInput({ target: searchInput });
+    backBtn.addEventListener('click', () => NavHistory.back());
+  }
+
+  const fwdBtn = document.getElementById('btn-history-forward');
+  if (fwdBtn) {
+    fwdBtn.addEventListener('click', () => NavHistory.forward());
+  }
+
+  // Desktop Sidebar Navigation Handlers
+  const navBtnHome = document.getElementById('nav-btn-home');
+  if (navBtnHome) {
+    navBtnHome.addEventListener('click', () => {
+      NavHistory.push({ type: 'browse-all' });
+      if (searchInput) searchInput.value = '';
+      State.query = '';
+      switchView('browse-all');
+      const chips = document.getElementById('filter-chips-bar');
+      if (chips) chips.classList.remove('visible');
+      setActiveNav('home');
+      const sv = document.getElementById('search-viewport');
+      if (sv) sv.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+  }
+
+  const navBtnSearch = document.getElementById('nav-btn-search');
+  if (navBtnSearch) {
+    navBtnSearch.addEventListener('click', () => {
+      setActiveNav('search');
+      if (searchInput) {
+        searchInput.focus();
+        searchInput.select();
       }
+    });
+  }
+
+  const libraryTitleNav = document.getElementById('library-title-nav');
+  if (libraryTitleNav) {
+    libraryTitleNav.addEventListener('click', () => {
+      showLibraryDetail();
     });
   }
 
@@ -3328,7 +4074,8 @@ document.addEventListener('DOMContentLoaded', () => {
   if (mobileNavLibrary) {
     mobileNavLibrary.addEventListener('click', () => {
       setMobileNavActive(mobileNavLibrary);
-      openMobileSidebar();
+      closeMobileSidebar();
+      showLibraryDetail();
     });
   }
 

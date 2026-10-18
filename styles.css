@@ -3483,6 +3483,198 @@ html, body {
   }
 }
 
+/* ==========================================================================
+   SPOTIFY DETAIL VIEWS & ADVANCED REVERSE-ENGINEERED UX
+   ========================================================================== */
 
+/* Artist Detail View */
+.artist-detail-header {
+  display: flex;
+  gap: 32px;
+  align-items: flex-end;
+  padding: 32px 0 28px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  margin-bottom: 28px;
+  flex-wrap: wrap;
+}
 
+.artist-avatar-img {
+  width: 180px;
+  height: 180px;
+  border-radius: 50%;
+  object-fit: cover;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+  border: 3px solid rgba(255, 255, 255, 0.1);
+}
 
+.artist-verified-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #3d91f4;
+  letter-spacing: 0.5px;
+}
+
+.artist-title-text {
+  font-size: clamp(2rem, 5vw, 3.2rem);
+  font-weight: 900;
+  line-height: 1.05;
+  margin: 4px 0 10px 0;
+  color: var(--spotify-white);
+  letter-spacing: -0.5px;
+}
+
+.artist-listeners-text {
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--spotify-subdued);
+  margin-bottom: 16px;
+}
+
+.artist-action-bar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.artist-follow-btn {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: var(--spotify-white);
+  padding: 8px 24px;
+  border-radius: 500px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.artist-follow-btn:hover {
+  border-color: var(--spotify-white);
+  transform: scale(1.04);
+}
+
+.artist-follow-btn.following {
+  border-color: var(--spotify-green);
+  color: var(--spotify-green);
+  background: rgba(30, 215, 96, 0.1);
+}
+
+/* Playlist Detail View */
+.playlist-detail-header {
+  display: flex;
+  gap: 28px;
+  align-items: flex-end;
+  padding: 28px 0 28px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+
+.playlist-cover-img {
+  width: 190px;
+  height: 190px;
+  border-radius: 8px;
+  object-fit: cover;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+/* Library / Liked Songs View */
+.library-hero-gradient {
+  display: flex;
+  gap: 28px;
+  align-items: flex-end;
+  padding: 36px 28px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #450af5 0%, #8e8ee5 70%, #1ed760 100%);
+  margin-bottom: 28px;
+  box-shadow: 0 12px 36px rgba(69, 10, 245, 0.35);
+  flex-wrap: wrap;
+}
+
+.library-heart-artwork {
+  width: 150px;
+  height: 150px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.25), rgba(0, 0, 0, 0.25));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(8px);
+}
+
+/* Section Subheadings inside Views */
+.detail-section-title {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: var(--spotify-white);
+  margin: 28px 0 16px 0;
+}
+
+/* Interactive Clickable Links for Artists & Albums */
+.clickable-artist-link,
+.clickable-album-link {
+  cursor: pointer;
+  transition: color 0.18s ease;
+}
+
+.clickable-artist-link:hover,
+.clickable-album-link:hover {
+  color: var(--spotify-white) !important;
+  text-decoration: underline;
+}
+
+/* Quick Add to Queue Button in Track Rows */
+.track-queue-btn {
+  background: transparent;
+  border: none;
+  color: var(--spotify-subdued);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.18s ease, color 0.18s ease, transform 0.18s ease;
+}
+
+.track-row:hover .track-queue-btn,
+.full-table-row:hover .track-queue-btn {
+  opacity: 1;
+}
+
+.track-queue-btn:hover {
+  color: var(--spotify-white);
+  transform: scale(1.15);
+}
+
+/* Repeat One Indicator */
+.player-ctrl-btn.repeat-one {
+  position: relative;
+  color: var(--spotify-green) !important;
+}
+
+.player-ctrl-btn.repeat-one::after {
+  content: '1';
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  font-size: 0.62rem;
+  font-weight: 900;
+  background: var(--spotify-green);
+  color: #000;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
