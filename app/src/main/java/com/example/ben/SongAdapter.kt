@@ -12,6 +12,14 @@ class SongAdapter(
     private val onLikeClick: (Song) -> Unit,
 ) : RecyclerView.Adapter<SongAdapter.SongViewHolder>() {
 
+    init {
+        setHasStableIds(true)
+    }
+
+    override fun getItemId(position: Int): Long {
+        return songs[position].id.hashCode().toLong()
+    }
+
     class SongViewHolder(val binding: ItemSongRowBinding) : RecyclerView.ViewHolder(binding.root)
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): SongViewHolder {

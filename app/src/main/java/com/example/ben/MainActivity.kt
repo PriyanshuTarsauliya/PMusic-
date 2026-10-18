@@ -57,6 +57,9 @@ class MainActivity : AppCompatActivity(), PlaybackManager.PlaybackListener {
 
         PlaybackManager.addListener(this)
         UbiTelemetryManager.log("desktop-find.browseMounted", "Curated recommendations ready")
+
+        // Preload top curated album art into fast memory cache on background thread
+        ImageLoader.preload(SpotifySearchEngine.defaultCuratedSongs.take(8).map { it.artworkUrl })
     }
 
     private fun setupUserHeader() {
@@ -322,6 +325,8 @@ class MainActivity : AppCompatActivity(), PlaybackManager.PlaybackListener {
         )
 
         binding.rvHomeSongs.apply {
+            setHasFixedSize(true)
+            setItemViewCacheSize(25)
             layoutManager = LinearLayoutManager(this@MainActivity)
             adapter = homeSongAdapter
         }
@@ -455,6 +460,8 @@ class MainActivity : AppCompatActivity(), PlaybackManager.PlaybackListener {
         )
 
         binding.rvSongs.apply {
+            setHasFixedSize(true)
+            setItemViewCacheSize(25)
             layoutManager = LinearLayoutManager(this@MainActivity)
             adapter = songAdapter
         }

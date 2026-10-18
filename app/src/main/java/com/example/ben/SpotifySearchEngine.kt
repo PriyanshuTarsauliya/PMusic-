@@ -2,6 +2,7 @@ package com.example.ben
 
 import android.os.Handler
 import android.os.Looper
+import android.util.LruCache
 import org.json.JSONObject
 import java.io.BufferedReader
 import java.io.InputStreamReader
@@ -11,11 +12,13 @@ import java.net.URLEncoder
 import java.util.Locale
 import java.util.UUID
 import java.util.concurrent.Executors
+import java.util.zip.GZIPInputStream
 
 object SpotifySearchEngine {
 
     private val executor = Executors.newSingleThreadExecutor()
     private val mainHandler = Handler(Looper.getMainLooper())
+    private val searchCache = object : LruCache<String, List<Song>>(80) {}
 
     val defaultCuratedSongs = listOf(
         Song(
@@ -193,6 +196,15 @@ object SpotifySearchEngine {
             return
         }
 
+        // Instant 0ms cache hit for repeat queries and backspaces
+        val cacheKey = trimmed.lowercase(Locale.ROOT)
+        val cached = searchCache.get(cacheKey)
+        if (cached != null) {
+            UbiTelemetryManager.log("desktop-find.cacheHit", "Cache hit for '$trimmed' (${cached.size} tracks)")
+            onResult(cached)
+            return
+        }
+
         val serpId = "serp_" + UUID.randomUUID().toString().substring(0, 8)
         UbiTelemetryManager.updateSerpId(serpId)
         UbiTelemetryManager.log("desktop-find.searchQuery", "Query: '$trimmed'", serpId)
@@ -204,13 +216,22 @@ object SpotifySearchEngine {
                 val encoded = URLEncoder.encode(trimmed, "UTF-8")
                 val searchUrl = "https://itunes.apple.com/search?term=$encoded&entity=song&limit=50"
                 conn = URL(searchUrl).openConnection() as HttpURLConnection
-                conn.connectTimeout = 5000
-                conn.readTimeout = 5000
+                conn.connectTimeout = 3500
+                conn.readTimeout = 3500
                 conn.requestMethod = "GET"
+                conn.useCaches = true
                 conn.setRequestProperty("User-Agent", "Spotify-REA/1.305.3058.0 Android")
+                conn.setRequestProperty("Accept-Encoding", "gzip")
 
                 if (conn.responseCode == 200) {
-                    val reader = BufferedReader(InputStreamReader(conn.inputStream))
+                    val encoding = conn.contentEncoding
+                    val inputStream = if (encoding != null && encoding.equals("gzip", ignoreCase = true)) {
+                        GZIPInputStream(conn.inputStream)
+                    } else {
+                        conn.inputStream
+                    }
+
+                    val reader = BufferedReader(InputStreamReader(inputStream, Charsets.UTF_8))
                     val responseStr = reader.readText()
                     reader.close()
 
@@ -259,6 +280,8 @@ object SpotifySearchEngine {
                     it.album.contains(trimmed, ignoreCase = true)
                 }
             }
+
+            searchCache.put(cacheKey, finalSongs)
 
             UbiTelemetryManager.log(
                 "desktop-find.resultsLoaded",
