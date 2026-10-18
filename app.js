@@ -1021,13 +1021,31 @@ function onYtError(e) {
   }
 }
 
+let isSeekingTimeline = false;
+let isSeekingVolume = false;
+
+function getPlaybackProgress() {
+  if (ytPlayer && ytReady && typeof ytPlayer.getCurrentTime === 'function') {
+    const cur = ytPlayer.getCurrentTime();
+    const dur = ytPlayer.getDuration() || (State.currentTrack ? State.currentTrack.duration : 0) || 180;
+    if (!isNaN(cur) && dur > 0) return { current: cur, duration: dur };
+  }
+  const audio = document.getElementById('audio-engine');
+  if (audio && audio.duration && !isNaN(audio.duration) && audio.duration > 0) {
+    return { current: audio.currentTime, duration: audio.duration };
+  }
+  return null;
+}
+
 function startYtProgress() {
   stopYtProgress();
   ytProgressInterval = setInterval(() => {
-    if (!ytPlayer || !ytPlayer.getCurrentTime) return;
-    const current = ytPlayer.getCurrentTime();
-    const duration = ytPlayer.getDuration() || State.currentTrack.duration || 180;
-    const pct = Math.min(100, (current / duration) * 100);
+    if (isSeekingTimeline) return;
+    const progress = getPlaybackProgress();
+    if (!progress) return;
+
+    const { current, duration } = progress;
+    const pct = Math.min(100, Math.max(0, (current / duration) * 100));
 
     const fill = document.getElementById('timeline-fill');
     const handle = document.getElementById('timeline-handle');
@@ -1038,7 +1056,7 @@ function startYtProgress() {
     if (handle) handle.style.left = `${pct}%`;
     if (timeCurr) timeCurr.textContent = formatDuration(current);
     if (timeTotal) timeTotal.textContent = formatDuration(duration);
-  }, 250);
+  }, 60);
 }
 
 function stopYtProgress() {
@@ -1772,30 +1790,145 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Seekbar scrubber
+  // Smooth interactive seekbar scrubber (Click + Drag / Touch scrub)
   const timelineBar = document.getElementById('timeline-bar');
-  if (timelineBar) {
-    timelineBar.addEventListener('click', (e) => {
-      const rect = timelineBar.getBoundingClientRect();
-      const pos = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-      if (ytPlayer && ytReady && ytPlayer.getDuration) {
-        const dur = ytPlayer.getDuration() || State.currentTrack.duration || 180;
-        ytPlayer.seekTo(pos * dur, true);
-      }
-    });
+  const timelineFill = document.getElementById('timeline-fill');
+  const timelineHandle = document.getElementById('timeline-handle');
+  const timeCurr = document.getElementById('player-current-time');
+
+  function updateTimelineScrubber(e) {
+    if (!timelineBar) return 0;
+    const rect = timelineBar.getBoundingClientRect();
+    const pos = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    const pct = pos * 100;
+    if (timelineFill) timelineFill.style.width = `${pct}%`;
+    if (timelineHandle) timelineHandle.style.left = `${pct}%`;
+
+    const progress = getPlaybackProgress();
+    const duration = progress ? progress.duration : (State.currentTrack ? State.currentTrack.duration : 180);
+    if (timeCurr) timeCurr.textContent = formatDuration(pos * duration);
+    return pos;
   }
 
-  // Volume bar
-  const volumeBar = document.getElementById('volume-bar');
-  if (volumeBar) {
-    volumeBar.addEventListener('click', (e) => {
-      const rect = volumeBar.getBoundingClientRect();
-      const val = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-      if (ytPlayer && ytReady && ytPlayer.setVolume) {
-        ytPlayer.setVolume(val * 100);
+  function commitSeek(pos) {
+    const progress = getPlaybackProgress();
+    const dur = progress ? progress.duration : (State.currentTrack ? State.currentTrack.duration : 180);
+    const targetTime = pos * dur;
+
+    if (ytPlayer && ytReady && typeof ytPlayer.seekTo === 'function') {
+      ytPlayer.seekTo(targetTime, true);
+    }
+    const audio = document.getElementById('audio-engine');
+    if (audio && audio.duration) {
+      audio.currentTime = targetTime;
+    }
+    logUbiEvent('hitSeekTrack', `${formatDuration(targetTime)} (${Math.round(pos * 100)}%)`);
+  }
+
+  if (timelineBar) {
+    timelineBar.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      isSeekingTimeline = true;
+      timelineBar.classList.add('is-dragging');
+      if (typeof timelineBar.setPointerCapture === 'function') {
+        try { timelineBar.setPointerCapture(e.pointerId); } catch (_) {}
       }
-      document.getElementById('volume-fill').style.width = `${val * 100}%`;
-      document.getElementById('volume-handle').style.left = `${val * 100}%`;
+      updateTimelineScrubber(e);
+    });
+
+    timelineBar.addEventListener('pointermove', (e) => {
+      if (!isSeekingTimeline) return;
+      e.preventDefault();
+      updateTimelineScrubber(e);
+    });
+
+    const finishTimelineSeek = (e) => {
+      if (!isSeekingTimeline) return;
+      const finalPos = updateTimelineScrubber(e);
+      commitSeek(finalPos);
+      timelineBar.classList.remove('is-dragging');
+      if (typeof timelineBar.releasePointerCapture === 'function') {
+        try { timelineBar.releasePointerCapture(e.pointerId); } catch (_) {}
+      }
+      setTimeout(() => { isSeekingTimeline = false; }, 80);
+    };
+
+    timelineBar.addEventListener('pointerup', finishTimelineSeek);
+    timelineBar.addEventListener('pointercancel', finishTimelineSeek);
+  }
+
+  // Smooth interactive volume scrubber (Click + Drag / Touch scrub)
+  const volumeBar = document.getElementById('volume-bar');
+  const volumeFill = document.getElementById('volume-fill');
+  const volumeHandle = document.getElementById('volume-handle');
+
+  function updateVolumeScrubber(e) {
+    if (!volumeBar) return 0.8;
+    const rect = volumeBar.getBoundingClientRect();
+    const val = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    const pct = val * 100;
+    if (volumeFill) volumeFill.style.width = `${pct}%`;
+    if (volumeHandle) volumeHandle.style.left = `${pct}%`;
+
+    if (ytPlayer && ytReady && typeof ytPlayer.setVolume === 'function') {
+      ytPlayer.setVolume(pct);
+    }
+    const audio = document.getElementById('audio-engine');
+    if (audio) {
+      audio.volume = val;
+    }
+    return val;
+  }
+
+  if (volumeBar) {
+    volumeBar.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      isSeekingVolume = true;
+      volumeBar.classList.add('is-dragging');
+      if (typeof volumeBar.setPointerCapture === 'function') {
+        try { volumeBar.setPointerCapture(e.pointerId); } catch (_) {}
+      }
+      updateVolumeScrubber(e);
+    });
+
+    volumeBar.addEventListener('pointermove', (e) => {
+      if (!isSeekingVolume) return;
+      e.preventDefault();
+      updateVolumeScrubber(e);
+    });
+
+    const finishVolumeSeek = (e) => {
+      if (!isSeekingVolume) return;
+      isSeekingVolume = false;
+      volumeBar.classList.remove('is-dragging');
+      if (typeof volumeBar.releasePointerCapture === 'function') {
+        try { volumeBar.releasePointerCapture(e.pointerId); } catch (_) {}
+      }
+      updateVolumeScrubber(e);
+    };
+
+    volumeBar.addEventListener('pointerup', finishVolumeSeek);
+    volumeBar.addEventListener('pointercancel', finishVolumeSeek);
+  }
+
+  // Audio engine fallback listeners for time & queue advancement
+  const audioEngineEl = document.getElementById('audio-engine');
+  if (audioEngineEl) {
+    audioEngineEl.addEventListener('play', () => {
+      State.isPlaying = true;
+      updatePlayerUI();
+      startYtProgress();
+    });
+    audioEngineEl.addEventListener('pause', () => {
+      if (!ytPlayer || !ytPlayer.getPlayerState || ytPlayer.getPlayerState() !== 1) {
+        State.isPlaying = false;
+        updatePlayerUI();
+        stopYtProgress();
+      }
+    });
+    audioEngineEl.addEventListener('ended', () => {
+      console.log('Audio preview ended, advancing to next song...');
+      playNextTrack();
     });
   }
 

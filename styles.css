@@ -1129,6 +1129,25 @@ html, body {
   background-color: #4d4d4d;
   border-radius: 2px;
   cursor: pointer;
+  touch-action: none;
+  transition: height 0.12s ease;
+  user-select: none;
+}
+
+/* Expanded hit area so user never slips off while scrubbing */
+.custom-range-bar::before {
+  content: '';
+  position: absolute;
+  top: -8px;
+  bottom: -8px;
+  left: 0;
+  right: 0;
+  cursor: pointer;
+}
+
+.custom-range-bar:hover,
+.custom-range-bar.is-dragging {
+  height: 6px;
 }
 
 .custom-range-fill {
@@ -1140,9 +1159,12 @@ html, body {
   background-color: var(--spotify-white);
   border-radius: 2px;
   pointer-events: none;
+  transition: width 0.08s linear;
+  will-change: width;
 }
 
-.custom-range-bar:hover .custom-range-fill {
+.custom-range-bar:hover .custom-range-fill,
+.custom-range-bar.is-dragging .custom-range-fill {
   background-color: var(--spotify-green);
 }
 
@@ -1156,11 +1178,24 @@ html, body {
   background-color: var(--spotify-white);
   display: none;
   pointer-events: none;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
+  transition: left 0.08s linear, transform 0.12s ease;
+  will-change: left;
 }
 
-.custom-range-bar:hover .custom-range-handle {
+.custom-range-bar:hover .custom-range-handle,
+.custom-range-bar.is-dragging .custom-range-handle {
   display: block;
+}
+
+.custom-range-bar.is-dragging .custom-range-handle {
+  transform: translate(-50%, -50%) scale(1.15);
+}
+
+/* Instant 1:1 tracking without latency while actively dragging */
+.custom-range-bar.is-dragging .custom-range-fill,
+.custom-range-bar.is-dragging .custom-range-handle {
+  transition: none !important;
 }
 
 /* Player Right: Volume & Tools */
