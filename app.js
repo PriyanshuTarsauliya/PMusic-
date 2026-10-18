@@ -777,7 +777,7 @@ function renderSidebarLibrary() {
     const isCurrent = State.currentTrack && (State.currentTrack.name === track.name);
     item.className = `sidebar-library-item ${isCurrent ? 'active' : ''}`;
     item.innerHTML = `
-      <img class="sidebar-library-thumb" src="${track.artwork || 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=100'}" alt="${escapeHtml(track.name)}">
+      <img class="sidebar-library-thumb" src="${track.artwork || 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=100'}" alt="${escapeHtml(track.name)}" loading="lazy" decoding="async">
       <div class="sidebar-library-info">
         <div class="sidebar-library-title">${escapeHtml(track.name)}</div>
         <div class="sidebar-library-artist">${escapeHtml(track.artist)}</div>
@@ -1650,7 +1650,7 @@ function renderQueueList() {
     const row = document.createElement('div');
     row.className = `queue-item-row ${isCurrent ? 'current' : ''}`;
     row.innerHTML = `
-      <img class="queue-item-thumb" src="${track.artwork || track.image}" alt="${track.name}">
+      <img class="queue-item-thumb" src="${track.artwork || track.image}" alt="${track.name}" loading="lazy" decoding="async">
       <div>
         <div class="queue-item-title">${track.name}</div>
         <div class="queue-item-artist">${track.artist}</div>
@@ -1700,10 +1700,31 @@ function onSearchInput(e) {
   }, 280);
 }
 
+// High-speed client-side search cache for instantaneous (0ms) results on repeat queries and category filters
+const searchCache = new Map();
+
 async function executeSearch(query) {
   State.serpId = generateId('serp');
   State.requestId = generateId('req');
   logUbiEvent('hitSearchQuery', `query="${query}"`);
+
+  const cacheKey = query.trim().toLowerCase();
+  if (searchCache.has(cacheKey)) {
+    State.currentSearchResults = searchCache.get(cacheKey);
+    if (!State.currentSearchResults.topResult && State.currentSearchResults.tracks.length === 0) {
+      switchView('empty');
+      document.getElementById('empty-title').textContent = `No results found for "${query}"`;
+    } else {
+      if (State.activeCategory === 'all') {
+        renderOverviewResults();
+        switchView('results');
+      } else {
+        renderDrilldownResults(State.activeCategory);
+        switchView('drilldown');
+      }
+    }
+    return;
+  }
 
   let tracks = [];
   let artists = [];
@@ -1780,6 +1801,11 @@ async function executeSearch(query) {
   }
 
   State.currentSearchResults = { topResult, tracks, artists, albums, playlists };
+  searchCache.set(cacheKey, State.currentSearchResults);
+  if (searchCache.size > 80) {
+    const oldestKey = searchCache.keys().next().value;
+    searchCache.delete(oldestKey);
+  }
 
   if (!topResult && tracks.length === 0 && artists.length === 0) {
     switchView('empty');
@@ -1845,7 +1871,7 @@ function renderFeaturedSongs() {
     row.className = `track-row ${isCurrent ? 'active' : ''}`;
     row.innerHTML = `
       <div class="track-row-col-thumb">
-        <img class="track-thumb-img" src="${track.artwork}" alt="${track.name}">
+        <img class="track-thumb-img" src="${track.artwork}" alt="${track.name}" loading="lazy" decoding="async">
         <div class="track-thumb-overlay-play">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
             <path d="${isCurrent && State.isPlaying ? 'M6 19h4V5H6v14zm8-14v14h4V5h-4z' : 'M8 5v14l11-7z'}"/>
@@ -1905,7 +1931,7 @@ function renderRecentSearches() {
     card.innerHTML = `
       <button class="recent-dismiss-btn" title="Remove from recent searches">&times;</button>
       <div class="recent-card-image-box ${isArtist ? 'circle' : ''}">
-        <img class="recent-card-image" src="${image}" alt="${title}">
+        <img class="recent-card-image" src="${image}" alt="${title}" loading="lazy" decoding="async">
       </div>
       <div class="shelf-card-title">${title}</div>
       <div class="shelf-card-desc">${sub}</div>
@@ -1952,7 +1978,7 @@ function renderOverviewResults() {
 
     topResultCard.innerHTML = `
       <div class="top-result-artwork-box ${isArtist ? 'circle' : ''}">
-        <img class="top-result-artwork" src="${image}" alt="${title}">
+        <img class="top-result-artwork" src="${image}" alt="${title}" loading="lazy" decoding="async">
       </div>
       <div class="top-result-title">${title}</div>
       <div class="top-result-meta-row">
@@ -1991,7 +2017,7 @@ function renderOverviewResults() {
       row.className = `track-row ${isCurrent ? 'active' : ''}`;
       row.innerHTML = `
         <div class="track-row-col-thumb">
-          <img class="track-thumb-img" src="${track.artwork}" alt="${track.name}">
+          <img class="track-thumb-img" src="${track.artwork}" alt="${track.name}" loading="lazy" decoding="async">
           <div class="track-thumb-overlay-play">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
               <path d="${isCurrent && State.isPlaying ? 'M6 19h4V5H6v14zm8-14v14h4V5h-4z' : 'M8 5v14l11-7z'}"/>
@@ -2095,7 +2121,7 @@ function renderShelf(sectionId, gridId, items, isCircle, onClick) {
     card.className = 'shelf-card';
     card.innerHTML = `
       <div class="shelf-card-art-box ${isCircle ? 'circle' : ''}">
-        <img class="shelf-card-art" src="${img}" alt="${title}" loading="lazy">
+        <img class="shelf-card-art" src="${img}" alt="${title}" loading="lazy" decoding="async">
       </div>
       <div class="shelf-card-title">${title}</div>
       <div class="shelf-card-desc">${sub}</div>
@@ -2144,7 +2170,7 @@ function renderDrilldownResults(category) {
         <td style="text-align:center; color:var(--spotify-subdued);">${index + 1}</td>
         <td>
           <div style="display:flex; align-items:center; gap:12px;">
-            <img src="${track.artwork}" style="width:40px; height:40px; border-radius:4px; object-fit:cover;">
+            <img src="${track.artwork}" style="width:40px; height:40px; border-radius:4px; object-fit:cover;" loading="lazy" decoding="async">
             <div>
               <div class="table-song-title" style="font-weight:600;">${track.name}</div>
               <div style="font-size:0.8rem; color:var(--spotify-subdued);">${track.artist}</div>
@@ -2849,30 +2875,32 @@ document.addEventListener('DOMContentLoaded', () => {
   // Check and update auth UI on startup
   updateAuthUI();
 
-  // If user has stored token, verify with server /api/auth/me
-  if (State.authToken) {
-    fetch('/api/auth/me', {
-      headers: { 'Authorization': `Bearer ${State.authToken}` }
-    })
-    .then(r => r.ok ? r.json() : Promise.reject())
-    .then(data => {
-      if (data && data.user) {
-        State.currentUser = data.user;
-        localStorage.setItem(AUTH_USER_KEY, JSON.stringify(data.user));
-        updateAuthUI();
-      }
-    })
-    .catch(() => {
-      handleLogout(false);
-    });
-  }
-
-  // Initialize Library
+  // Initialize Library UI immediately from local storage for instant paint
   renderSidebarLibrary();
-  syncServerLibrary();
-
   updatePlayerUI();
   logUbiEvent('hitSessionStart', 'desktop-find.browseAll');
+
+  // Defer non-critical background network synchronization to prevent startup contention
+  setTimeout(() => {
+    syncServerLibrary();
+
+    if (State.authToken) {
+      fetch('/api/auth/me', {
+        headers: { 'Authorization': `Bearer ${State.authToken}` }
+      })
+      .then(r => r.ok ? r.json() : Promise.reject())
+      .then(data => {
+        if (data && data.user) {
+          State.currentUser = data.user;
+          localStorage.setItem(AUTH_USER_KEY, JSON.stringify(data.user));
+          updateAuthUI();
+        }
+      })
+      .catch(() => {
+        handleLogout(false);
+      });
+    }
+  }, 20);
 
   // Register Android PWA Service Worker for standalone installability and instant caching
   if ('serviceWorker' in navigator) {

@@ -3,3 +3,11 @@ node_modules/
 Thumbs.db
 *.log
 .env
+.gradle/
+.idea/
+.vscode/
+.kotlin/
+build/
+app/
+local.properties
+spotify-search/
