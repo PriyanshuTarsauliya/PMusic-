@@ -692,14 +692,24 @@ html, body {
 }
 
 .top-result-card:hover .card-floating-play-btn,
-.shelf-card:hover .card-floating-play-btn {
+.shelf-card:hover .card-floating-play-btn,
+.card-floating-play-btn.is-active {
   opacity: 1;
   transform: translateY(0);
 }
 
 .card-floating-play-btn:hover {
-  transform: scale(1.06);
+  transform: scale(1.08);
   background-color: var(--spotify-green-hover);
+}
+
+.album-header-play-btn:hover {
+  transform: scale(1.06);
+  background-color: var(--spotify-green-hover) !important;
+}
+
+.album-header-play-btn:active {
+  transform: scale(0.98);
 }
 
 .card-floating-play-btn:active {
