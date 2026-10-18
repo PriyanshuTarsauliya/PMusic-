@@ -6,7 +6,10 @@ import android.os.Handler
 import android.os.Looper
 import android.view.View
 import android.widget.Button
+import android.widget.EditText
+import android.widget.LinearLayout
 import android.widget.SeekBar
+import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
@@ -63,6 +66,12 @@ class MainActivity : AppCompatActivity(), PlaybackManager.PlaybackListener {
         binding.tvUserGreeting.text = getString(R.string.user_greeting, displayName)
         binding.tvAccountBadge.text = accountType
 
+        // Open Feedback & Excel Exporter Dialog
+        binding.btnFeedback.setOnClickListener {
+            UbiTelemetryManager.log("hitFeedbackOpen", "User opened feedback dialog")
+            showFeedbackDialog()
+        }
+
         // Open REA Evidence & Telemetry Inspector
         binding.btnReaInspector.setOnClickListener {
             UbiTelemetryManager.log("hitInspectorOpen", "User opened Spotify REA Architecture Inspector")
@@ -77,6 +86,93 @@ class MainActivity : AppCompatActivity(), PlaybackManager.PlaybackListener {
             startActivity(Intent(this, LoginActivity::class.java))
             finish()
         }
+    }
+
+    private fun showFeedbackDialog() {
+        val context = this
+        val layout = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(48, 24, 48, 24)
+        }
+
+        val tvName = TextView(context).apply {
+            text = "Your Name:"
+            setTextColor(ContextCompat.getColor(context, R.color.spotify_white))
+            textSize = 14f
+            setTypeface(null, android.graphics.Typeface.BOLD)
+        }
+        val etName = EditText(context).apply {
+            hint = "e.g. Priyanshu"
+            setHintTextColor(ContextCompat.getColor(context, R.color.spotify_subdued))
+            setTextColor(ContextCompat.getColor(context, R.color.spotify_white))
+            setText(sessionManager.getDisplayName())
+        }
+
+        val tvDetail = TextView(context).apply {
+            text = "Feedback Details:"
+            setTextColor(ContextCompat.getColor(context, R.color.spotify_white))
+            textSize = 14f
+            setTypeface(null, android.graphics.Typeface.BOLD)
+            setPadding(0, 24, 0, 0)
+        }
+        val etDetail = EditText(context).apply {
+            hint = "Write your feedback, feature ideas, or song requests..."
+            setHintTextColor(ContextCompat.getColor(context, R.color.spotify_subdued))
+            setTextColor(ContextCompat.getColor(context, R.color.spotify_white))
+            minLines = 3
+        }
+
+        layout.addView(tvName)
+        layout.addView(etName)
+        layout.addView(tvDetail)
+        layout.addView(etDetail)
+
+        val dialog = androidx.appcompat.app.AlertDialog.Builder(context)
+            .setTitle("📝 Feedback & Excel Exporter")
+            .setMessage("Your feedback will be recorded and exported directly to an Excel sheet.")
+            .setView(layout)
+            .setPositiveButton("Submit & Save Excel") { _, _ ->
+                val name = etName.text.toString().trim()
+                val detail = etDetail.text.toString().trim()
+
+                if (name.isEmpty() || detail.isEmpty()) {
+                    Toast.makeText(context, "Please enter both name and feedback details.", Toast.LENGTH_SHORT).show()
+                    return@setPositiveButton
+                }
+
+                val now = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date())
+                val feedbackId = "FB-" + System.currentTimeMillis().toString(36).uppercase()
+
+                // Export to Excel-compatible CSV file with UTF-8 BOM
+                try {
+                    val downloadsDir = context.getExternalFilesDir(android.os.Environment.DIRECTORY_DOWNLOADS)
+                        ?: context.filesDir
+                    val excelFile = java.io.File(downloadsDir, "PMusic_Feedback_Report.csv")
+                    val isNewFile = !excelFile.exists()
+
+                    java.io.FileOutputStream(excelFile, true).bufferedWriter(Charsets.UTF_8).use { writer ->
+                        if (isNewFile) {
+                            writer.write("\uFEFF\"Feedback ID\",\"Date & Time\",\"Name\",\"Details\",\"Platform\"\n")
+                        }
+                        val safeName = name.replace("\"", "\"\"")
+                        val safeDetail = detail.replace("\"", "\"\"")
+                        writer.write("\"$feedbackId\",\"$now\",\"$safeName\",\"$safeDetail\",\"Android App\"\n")
+                    }
+
+                    UbiTelemetryManager.log("hitFeedbackSubmitted", "$name: $detail")
+                    Toast.makeText(
+                        context,
+                        "Feedback recorded & exported to Excel sheet!\nSaved in: ${excelFile.name}",
+                        Toast.LENGTH_LONG
+                    ).show()
+                } catch (e: Exception) {
+                    Toast.makeText(context, "Feedback recorded. (Excel note: ${e.message})", Toast.LENGTH_SHORT).show()
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .create()
+
+        dialog.show()
     }
 
     // ==========================================================
