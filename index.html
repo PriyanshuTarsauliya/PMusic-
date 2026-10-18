@@ -84,6 +84,11 @@
           <button class="sidebar-auth-btn" id="btn-sidebar-auth">Log In</button>
         </div>
 
+        <button class="sidebar-feedback-btn" id="btn-sidebar-feedback" title="Share Feedback &amp; Export Excel">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-7 12h-2v-2h2v2zm0-4h-2V6h2v4z"/></svg>
+          <span>Feedback &amp; Excel</span>
+        </button>
+
         <button class="evidence-badge-btn" id="btn-toggle-evidence">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 10 10A10.011 10.011 0 0 0 12 2zm1 15h-2v-6h2zm0-8h-2V7h2z"/></svg>
           <span>View REA Evidence</span>
@@ -121,6 +126,10 @@
         </div>
 
         <div class="header-right-tools">
+          <button class="feedback-trigger-btn" id="btn-header-feedback" title="Share Feedback &amp; Export Excel">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-7 12h-2v-2h2v2zm0-4h-2V6h2v4z"/></svg>
+            <span>Feedback</span>
+          </button>
           <button class="chat-import-trigger-btn" id="btn-header-open-chat" title="Chat Box: Import & Save Songs to Library">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/></svg>
             <span>💬 Chat Importer</span>
@@ -624,6 +633,63 @@ Or write: 'Hey add Shape of You, Perfect, and Faded to my library'"></textarea>
           <div class="auth-modal-footer-note">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/></svg>
             <span>Cloud Database Sync: All your songs will be permanently saved to your account.</span>
+          </div>
+
+    <!-- FEEDBACK & EXCEL EXPORT MODAL -->
+    <div class="feedback-modal-overlay" id="feedback-modal-overlay" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="feedback-modal-title">
+      <div class="feedback-modal-card">
+        <!-- Modal Header -->
+        <div class="feedback-modal-header">
+          <div class="feedback-modal-brand">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="#1ed760">
+              <path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-7 12h-2v-2h2v2zm0-4h-2V6h2v4z"/>
+            </svg>
+            <span class="feedback-brand-text">PMusic Feedback &amp; Excel Exporter</span>
+          </div>
+          <button class="chat-modal-close-btn" id="btn-close-feedback-modal" aria-label="Close modal">&times;</button>
+        </div>
+
+        <div class="feedback-modal-content">
+          <h2 class="feedback-title" id="feedback-modal-title">Share Your Feedback</h2>
+          <p class="feedback-subtitle">Help us improve PMusic. Enter your name and detailed thoughts below. Every submission is recorded in the server database and can be exported directly to an Excel sheet.</p>
+
+          <!-- Feedback Category Pills -->
+          <div class="feedback-category-pills">
+            <button type="button" class="feedback-cat-pill active" data-cat="General Feedback">💡 General</button>
+            <button type="button" class="feedback-cat-pill" data-cat="Song Request">🎵 Song Request</button>
+            <button type="button" class="feedback-cat-pill" data-cat="Bug Report">🐞 Bug Report</button>
+            <button type="button" class="feedback-cat-pill" data-cat="Feature Idea">✨ Feature Idea</button>
+          </div>
+
+          <!-- Feedback Form -->
+          <form class="feedback-form" id="feedback-form" onsubmit="return false;">
+            <div class="feedback-field-group">
+              <label for="feedback-name-input" class="feedback-label">Your Name</label>
+              <input type="text" id="feedback-name-input" class="feedback-input" placeholder="e.g. Priyanshu Tarsauliya" required autocomplete="name">
+            </div>
+
+            <div class="feedback-field-group">
+              <label for="feedback-detail-input" class="feedback-label">Feedback Details</label>
+              <textarea id="feedback-detail-input" class="feedback-textarea" rows="4" placeholder="Enter details about your experience, song suggestions, or any issues you encountered..." required></textarea>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="feedback-actions-row">
+              <button type="submit" class="feedback-submit-btn" id="btn-submit-feedback">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+                <span id="feedback-submit-label">Submit &amp; Download Excel</span>
+              </button>
+              <button type="button" class="feedback-export-btn" id="btn-export-feedback-all" title="Download cumulative database feedback in Excel format">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
+                <span>Export All to Excel (.xls)</span>
+              </button>
+            </div>
+          </form>
+
+          <!-- Feedback Status Footer -->
+          <div class="feedback-footer-note">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="#1ed760"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+            <span id="feedback-counter-note">Recorded in permanent server database &amp; exported to formatted Excel spreadsheet.</span>
           </div>
 
         </div>

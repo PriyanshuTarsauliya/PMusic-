@@ -3208,6 +3208,271 @@ html, body {
   }
 }
 
+/* ==========================================================================
+   FEEDBACK BUTTON & EXCEL EXPORTER MODAL
+   ========================================================================== */
+
+.feedback-trigger-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: var(--spotify-white);
+  padding: 6px 14px;
+  border-radius: 500px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.feedback-trigger-btn:hover {
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.3);
+  transform: scale(1.03);
+}
+
+.feedback-trigger-btn svg {
+  color: var(--spotify-green);
+}
+
+.sidebar-feedback-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin-top: 8px;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: var(--spotify-subdued);
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.sidebar-feedback-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--spotify-white);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.sidebar-feedback-btn svg {
+  color: var(--spotify-green);
+}
+
+.feedback-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.82);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1250;
+  padding: 20px;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.feedback-modal-card {
+  background: #181818;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 16px;
+  width: 100%;
+  max-width: 500px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.95);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: modalSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.feedback-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 22px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: #141414;
+}
+
+.feedback-modal-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.feedback-brand-text {
+  color: #ffffff;
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+}
+
+.feedback-modal-content {
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+}
+
+.feedback-title {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: -0.4px;
+  margin-bottom: 6px;
+}
+
+.feedback-subtitle {
+  font-size: 0.82rem;
+  color: var(--spotify-subdued);
+  line-height: 1.45;
+  margin-bottom: 16px;
+}
+
+.feedback-category-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.feedback-cat-pill {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--spotify-subdued);
+  padding: 6px 12px;
+  border-radius: 500px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.feedback-cat-pill:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--spotify-white);
+}
+
+.feedback-cat-pill.active {
+  background: rgba(30, 215, 96, 0.2);
+  border-color: var(--spotify-green);
+  color: var(--spotify-green);
+}
+
+.feedback-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.feedback-field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.feedback-label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--spotify-white);
+}
+
+.feedback-input,
+.feedback-textarea {
+  background: #242424;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  color: #fff;
+  font-family: inherit;
+  font-size: 0.88rem;
+  padding: 10px 14px;
+  transition: border-color 0.2s ease;
+  resize: vertical;
+}
+
+.feedback-input:focus,
+.feedback-textarea:focus {
+  outline: none;
+  border-color: var(--spotify-green);
+  background: #282828;
+}
+
+.feedback-actions-row {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.feedback-submit-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: var(--spotify-green);
+  color: #000;
+  border: none;
+  border-radius: 500px;
+  padding: 12px 20px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.feedback-submit-btn:hover {
+  background: #1fdf64;
+  transform: scale(1.02);
+}
+
+.feedback-export-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: var(--spotify-white);
+  border-radius: 500px;
+  padding: 10px 18px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.feedback-export-btn:hover {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.28);
+}
+
+.feedback-footer-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 16px;
+  font-size: 0.74rem;
+  color: var(--spotify-subdued);
+  line-height: 1.4;
+}
+
+@media (max-width: 600px) {
+  .feedback-modal-card {
+    max-height: 94vh;
+    border-radius: 16px 16px 0 0;
+  }
+  .feedback-modal-overlay {
+    padding: 0;
+    align-items: flex-end;
+  }
+}
+
 
 
 

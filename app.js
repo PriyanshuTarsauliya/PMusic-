@@ -926,6 +926,166 @@ async function resolveSingleSongQuery(query) {
   };
 }
 
+// ==========================================================================
+// FEEDBACK & EXCEL EXPORTER LOGIC
+// ==========================================================================
+
+let selectedFeedbackCategory = 'General Feedback';
+
+function openFeedbackModal() {
+  const overlay = document.getElementById('feedback-modal-overlay');
+  if (!overlay) return;
+  overlay.style.display = 'flex';
+
+  // Pre-fill name if user is logged in
+  const nameInput = document.getElementById('feedback-name-input');
+  if (nameInput && !nameInput.value && State.currentUser && State.currentUser.username) {
+    nameInput.value = State.currentUser.username;
+  }
+  setTimeout(() => {
+    if (nameInput) nameInput.focus();
+  }, 100);
+  logUbiEvent('hitOpenFeedbackModal');
+}
+
+function closeFeedbackModal() {
+  const overlay = document.getElementById('feedback-modal-overlay');
+  if (overlay) overlay.style.display = 'none';
+}
+
+// Download native XML Spreadsheet 2003 or Excel file directly in the browser
+function triggerClientExcelDownload(feedbackItem) {
+  const escapeXml = (str) => String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  
+  const excelXml = `<?xml version="1.0" encoding="UTF-8"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:o="urn:schemas-microsoft-com:office:office"
+ xmlns:x="urn:schemas-microsoft-com:office:excel"
+ xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+ <Styles>
+  <Style ss:ID="Default" ss:Name="Normal">
+   <Font ss:FontName="Segoe UI" ss:Size="11" ss:Color="#000000"/>
+  </Style>
+  <Style ss:ID="Header">
+   <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
+   <Font ss:FontName="Segoe UI" ss:Size="11" ss:Color="#FFFFFF" ss:Bold="1"/>
+   <Interior ss:Color="#1ED760" ss:Pattern="Solid"/>
+  </Style>
+ </Styles>
+ <Worksheet ss:Name="Feedback">
+  <Table ss:DefaultRowHeight="20">
+   <Column ss:Width="110"/>
+   <Column ss:Width="160"/>
+   <Column ss:Width="160"/>
+   <Column ss:Width="140"/>
+   <Column ss:Width="420"/>
+   <Column ss:Width="100"/>
+   <Row ss:Height="26" ss:StyleID="Header">
+    <Cell><Data ss:Type="String">Feedback ID</Data></Cell>
+    <Cell><Data ss:Type="String">Date &amp; Time</Data></Cell>
+    <Cell><Data ss:Type="String">User Name</Data></Cell>
+    <Cell><Data ss:Type="String">Category</Data></Cell>
+    <Cell><Data ss:Type="String">Feedback Details</Data></Cell>
+    <Cell><Data ss:Type="String">Platform</Data></Cell>
+   </Row>
+   <Row ss:Height="24">
+    <Cell><Data ss:Type="String">${escapeXml(feedbackItem.id)}</Data></Cell>
+    <Cell><Data ss:Type="String">${escapeXml(feedbackItem.dateFormatted || feedbackItem.timestamp)}</Data></Cell>
+    <Cell><Data ss:Type="String">${escapeXml(feedbackItem.name)}</Data></Cell>
+    <Cell><Data ss:Type="String">${escapeXml(feedbackItem.category)}</Data></Cell>
+    <Cell><Data ss:Type="String">${escapeXml(feedbackItem.detail)}</Data></Cell>
+    <Cell><Data ss:Type="String">${escapeXml(feedbackItem.client || 'Web Player')}</Data></Cell>
+   </Row>
+  </Table>
+ </Worksheet>
+</Workbook>`;
+
+  const blob = new Blob([excelXml], { type: 'application/vnd.ms-excel;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const safeName = (feedbackItem.name || 'User').replace(/[^a-zA-Z0-9]/g, '_');
+  a.href = url;
+  a.download = `PMusic_Feedback_${safeName}.xls`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+async function handleFeedbackSubmit(e) {
+  if (e) e.preventDefault();
+  const nameInput = document.getElementById('feedback-name-input');
+  const detailInput = document.getElementById('feedback-detail-input');
+  const submitBtn = document.getElementById('btn-submit-feedback');
+  const submitLabel = document.getElementById('feedback-submit-label');
+
+  const name = nameInput ? nameInput.value.trim() : '';
+  const detail = detailInput ? detailInput.value.trim() : '';
+
+  if (!name) {
+    if (nameInput) nameInput.focus();
+    showBannerToast('Please enter your name.');
+    return;
+  }
+  if (!detail) {
+    if (detailInput) detailInput.focus();
+    showBannerToast('Please enter your feedback details.');
+    return;
+  }
+
+  if (submitBtn) submitBtn.disabled = true;
+  if (submitLabel) submitLabel.textContent = 'Submitting & Generating Excel...';
+
+  const feedbackData = {
+    id: `FB-${Date.now().toString(36).toUpperCase()}`,
+    name,
+    detail,
+    category: selectedFeedbackCategory,
+    client: 'Web Player',
+    timestamp: new Date().toISOString(),
+    dateFormatted: new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })
+  };
+
+  try {
+    // Send to backend server
+    const res = await fetch('/api/feedback', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(feedbackData)
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.feedback) {
+        feedbackData.id = data.feedback.id;
+      }
+    }
+  } catch (err) {
+    console.warn('Backend feedback recording fallback:', err);
+  }
+
+  // Trigger immediate Excel sheet download in browser
+  triggerClientExcelDownload(feedbackData);
+
+  logUbiEvent('hitSubmitFeedback', `user=${name}, cat=${selectedFeedbackCategory}`);
+  showBannerToast(`Thank you, ${name}! Feedback saved & Excel sheet downloaded.`);
+
+  // Reset detail and re-enable button
+  if (detailInput) detailInput.value = '';
+  if (submitBtn) submitBtn.disabled = false;
+  if (submitLabel) submitLabel.textContent = 'Submit & Download Excel';
+
+  setTimeout(() => {
+    closeFeedbackModal();
+  }, 600);
+}
+
+function handleExportAllFeedbackExcel() {
+  logUbiEvent('hitExportAllFeedbackExcel');
+  showBannerToast('Downloading complete feedback Excel report...');
+  window.location.href = '/api/feedback/export.xls';
+}
+
 function openChatModal() {
   const modal = document.getElementById('chat-modal-overlay');
   if (modal) {
@@ -2398,8 +2558,44 @@ document.addEventListener('DOMContentLoaded', () => {
     if (e.key === 'Escape') {
       closeChatModal();
       closeAuthModal();
+      closeFeedbackModal();
     }
   });
+
+  // Feedback Modal Event Bindings
+  const btnHeaderFeedback = document.getElementById('btn-header-feedback');
+  if (btnHeaderFeedback) btnHeaderFeedback.addEventListener('click', openFeedbackModal);
+
+  const btnSidebarFeedback = document.getElementById('btn-sidebar-feedback');
+  if (btnSidebarFeedback) btnSidebarFeedback.addEventListener('click', openFeedbackModal);
+
+  const btnCloseFeedback = document.getElementById('btn-close-feedback-modal');
+  if (btnCloseFeedback) btnCloseFeedback.addEventListener('click', closeFeedbackModal);
+
+  const feedbackOverlay = document.getElementById('feedback-modal-overlay');
+  if (feedbackOverlay) {
+    feedbackOverlay.addEventListener('click', (e) => {
+      if (e.target === feedbackOverlay) closeFeedbackModal();
+    });
+  }
+
+  document.querySelectorAll('.feedback-cat-pill').forEach(pill => {
+    pill.addEventListener('click', () => {
+      document.querySelectorAll('.feedback-cat-pill').forEach(p => p.classList.remove('active'));
+      pill.classList.add('active');
+      selectedFeedbackCategory = pill.getAttribute('data-cat') || 'General Feedback';
+    });
+  });
+
+  const feedbackForm = document.getElementById('feedback-form');
+  if (feedbackForm) {
+    feedbackForm.addEventListener('submit', handleFeedbackSubmit);
+  }
+
+  const btnExportAllFeedback = document.getElementById('btn-export-feedback-all');
+  if (btnExportAllFeedback) {
+    btnExportAllFeedback.addEventListener('click', handleExportAllFeedbackExcel);
+  }
 
   // Chat Importer Modal Event Bindings
   const btnHeaderChat = document.getElementById('btn-header-open-chat');

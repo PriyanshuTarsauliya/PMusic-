@@ -21,6 +21,7 @@ const MIME = {
 const DATA_DIR = path.join(DIR, 'data');
 const LIBRARY_FILE = path.join(DATA_DIR, 'library.json');
 const USERS_DB_FILE = path.join(DATA_DIR, 'users.json');
+const FEEDBACK_FILE = path.join(DATA_DIR, 'feedback.json');
 
 // Ensure database directory exists
 if (!fs.existsSync(DATA_DIR)) {
@@ -47,6 +48,128 @@ function saveLibrary(tracks) {
     console.error('Error writing library.json:', e.message);
     return false;
   }
+}
+
+// ==========================================================================
+// FEEDBACK DATABASE & EXCEL SPREADSHEET EXPORTER
+// ==========================================================================
+
+function getFeedbackDb() {
+  try {
+    if (fs.existsSync(FEEDBACK_FILE)) {
+      const data = fs.readFileSync(FEEDBACK_FILE, 'utf8');
+      return JSON.parse(data || '[]');
+    }
+  } catch (e) {
+    console.error('Error reading feedback.json:', e.message);
+  }
+  return [];
+}
+
+function saveFeedbackDb(list) {
+  try {
+    fs.writeFileSync(FEEDBACK_FILE, JSON.stringify(list, null, 2), 'utf8');
+    return true;
+  } catch (e) {
+    console.error('Error writing feedback.json:', e.message);
+    return false;
+  }
+}
+
+function escapeXml(str) {
+  return String(str || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+// Generate native XML Spreadsheet 2003 (.xls) - opens in Microsoft Excel with styling, green header, column widths
+function generateExcelXml(feedbackList) {
+  let rows = '';
+  feedbackList.forEach((item, index) => {
+    rows += `
+   <Row ss:Height="22">
+    <Cell><Data ss:Type="Number">${index + 1}</Data></Cell>
+    <Cell><Data ss:Type="String">${escapeXml(item.id)}</Data></Cell>
+    <Cell><Data ss:Type="String">${escapeXml(item.dateFormatted || item.timestamp)}</Data></Cell>
+    <Cell><Data ss:Type="String">${escapeXml(item.name)}</Data></Cell>
+    <Cell><Data ss:Type="String">${escapeXml(item.category || 'General Feedback')}</Data></Cell>
+    <Cell><Data ss:Type="String">${escapeXml(item.detail)}</Data></Cell>
+    <Cell><Data ss:Type="String">${escapeXml(item.client || 'Web App')}</Data></Cell>
+   </Row>`;
+  });
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:o="urn:schemas-microsoft-com:office:office"
+ xmlns:x="urn:schemas-microsoft-com:office:excel"
+ xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:html="http://www.w3.org/TR/REC-html40">
+ <DocumentProperties xmlns="urn:schemas-microsoft-com:office:office">
+  <Title>PMusic Feedback Report</Title>
+  <Author>PMusic System</Author>
+  <Created>${new Date().toISOString()}</Created>
+ </DocumentProperties>
+ <Styles>
+  <Style ss:ID="Default" ss:Name="Normal">
+   <Alignment ss:Vertical="Center"/>
+   <Borders/>
+   <Font ss:FontName="Segoe UI" ss:Size="11" ss:Color="#000000"/>
+   <Interior/>
+   <NumberFormat/>
+   <Protection/>
+  </Style>
+  <Style ss:ID="HeaderStyle">
+   <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
+   <Borders>
+    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="2" ss:Color="#10863A"/>
+   </Borders>
+   <Font ss:FontName="Segoe UI" ss:Size="11" ss:Color="#FFFFFF" ss:Bold="1"/>
+   <Interior ss:Color="#1ED760" ss:Pattern="Solid"/>
+  </Style>
+ </Styles>
+ <Worksheet ss:Name="Feedback Submissions">
+  <Table ss:ExpandedColumnCount="7" x:FullColumns="1" x:FullRows="1" ss:DefaultRowHeight="20">
+   <Column ss:AutoFitWidth="0" ss:Width="45"/>
+   <Column ss:AutoFitWidth="0" ss:Width="110"/>
+   <Column ss:AutoFitWidth="0" ss:Width="160"/>
+   <Column ss:AutoFitWidth="0" ss:Width="160"/>
+   <Column ss:AutoFitWidth="0" ss:Width="140"/>
+   <Column ss:AutoFitWidth="0" ss:Width="420"/>
+   <Column ss:AutoFitWidth="0" ss:Width="100"/>
+   <Row ss:Height="28" ss:StyleID="HeaderStyle">
+    <Cell><Data ss:Type="String">#</Data></Cell>
+    <Cell><Data ss:Type="String">Feedback ID</Data></Cell>
+    <Cell><Data ss:Type="String">Date &amp; Time</Data></Cell>
+    <Cell><Data ss:Type="String">User Name</Data></Cell>
+    <Cell><Data ss:Type="String">Category</Data></Cell>
+    <Cell><Data ss:Type="String">Feedback Details</Data></Cell>
+    <Cell><Data ss:Type="String">Platform</Data></Cell>
+   </Row>
+   ${rows}
+  </Table>
+ </Worksheet>
+</Workbook>`;
+}
+
+// Generate Excel-compatible CSV with UTF-8 BOM
+function generateExcelCsv(feedbackList) {
+  const BOM = '\uFEFF';
+  const escapeCsv = (str) => `"${String(str || '').replace(/"/g, '""')}"`;
+  const header = ['#', 'Feedback ID', 'Date & Time', 'Name', 'Category', 'Details', 'Platform'].map(escapeCsv).join(',');
+  const lines = feedbackList.map((item, index) => [
+    index + 1,
+    escapeCsv(item.id),
+    escapeCsv(item.dateFormatted || item.timestamp),
+    escapeCsv(item.name),
+    escapeCsv(item.category || 'General Feedback'),
+    escapeCsv(item.detail),
+    escapeCsv(item.client || 'Web App')
+  ].join(','));
+  return BOM + [header, ...lines].join('\r\n');
 }
 
 // ==========================================================================
@@ -416,6 +539,84 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(400, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: 'Invalid JSON payload' }));
     }
+    return;
+  }
+
+  // API Route: Submit new user feedback
+  if (pathname === '/api/feedback' && req.method === 'POST') {
+    try {
+      const payload = await readJsonBody(req);
+      const name = (payload.name || '').trim();
+      const detail = (payload.detail || payload.details || '').trim();
+      const category = (payload.category || 'General Feedback').trim();
+      const client = (payload.client || 'Web App').trim();
+
+      if (!name || !detail) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Name and feedback details are required.' }));
+        return;
+      }
+
+      const now = new Date();
+      const entry = {
+        id: `FB-${Date.now().toString(36).toUpperCase()}`,
+        name,
+        detail,
+        category,
+        client,
+        timestamp: now.toISOString(),
+        dateFormatted: now.toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })
+      };
+
+      const list = getFeedbackDb();
+      list.unshift(entry);
+      saveFeedbackDb(list);
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        success: true,
+        message: 'Feedback recorded successfully.',
+        feedback: entry,
+        totalCount: list.length
+      }));
+    } catch (err) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Invalid feedback submission.' }));
+    }
+    return;
+  }
+
+  // API Route: Get all feedback list
+  if (pathname === '/api/feedback' && req.method === 'GET') {
+    const list = getFeedbackDb();
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: true, count: list.length, feedbacks: list }));
+    return;
+  }
+
+  // API Route: Export feedback directly to Excel (.xls XML spreadsheet with styling)
+  if ((pathname === '/api/feedback/export' || pathname === '/api/feedback/export.xls' || pathname === '/api/feedback/export-excel') && req.method === 'GET') {
+    const list = getFeedbackDb();
+    const xml = generateExcelXml(list);
+    res.writeHead(200, {
+      'Content-Type': 'application/vnd.ms-excel; charset=UTF-8',
+      'Content-Disposition': 'attachment; filename="PMusic_Feedback_Report.xls"',
+      'Cache-Control': 'no-cache'
+    });
+    res.end(xml);
+    return;
+  }
+
+  // API Route: Export feedback to CSV (.csv with UTF-8 BOM for Excel)
+  if (pathname === '/api/feedback/export.csv' && req.method === 'GET') {
+    const list = getFeedbackDb();
+    const csv = generateExcelCsv(list);
+    res.writeHead(200, {
+      'Content-Type': 'text/csv; charset=utf-8',
+      'Content-Disposition': 'attachment; filename="PMusic_Feedback_Report.csv"',
+      'Cache-Control': 'no-cache'
+    });
+    res.end(csv);
     return;
   }
 
