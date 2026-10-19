@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="preload" href="styles.css" as="style">
-  <link rel="stylesheet" href="styles.css?v=12">
+  <link rel="stylesheet" href="styles.css?v=14">
   <!-- YouTube IFrame API for Real Full-Length Song Playback (loaded asynchronously to eliminate render blocking) -->
   <script src="https://www.youtube.com/iframe_api" async></script>
 </head>
@@ -131,24 +131,27 @@
         </div>
 
         <div class="header-right-tools">
-          <button class="feedback-trigger-btn" id="btn-header-feedback" title="Share Feedback &amp; Export Excel">
+          <button class="feedback-trigger-btn header-tool-btn" id="btn-header-feedback" title="Share Feedback &amp; Export Excel">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-7 12h-2v-2h2v2zm0-4h-2V6h2v4z"/></svg>
-            <span>Feedback</span>
+            <span class="btn-text-full">Feedback</span>
           </button>
-          <button class="feedback-trigger-btn" id="btn-header-security-dashboard" title="View Multi-Core Cluster &amp; Security Architecture" style="background:rgba(29,185,84,0.12); border-color:rgba(29,185,84,0.4); color:#1ed760;">
+          <button class="feedback-trigger-btn header-tool-btn" id="btn-header-security-dashboard" title="View Multi-Core Cluster &amp; Security Architecture" style="background:rgba(29,185,84,0.12); border-color:rgba(29,185,84,0.4); color:#1ed760;">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/></svg>
-            <span>🛡️ Cluster &amp; Security</span>
+            <span class="btn-text-full">🛡️ Cluster &amp; Security</span>
+            <span class="btn-text-short">Security</span>
           </button>
-          <button class="chat-import-trigger-btn" id="btn-header-open-chat" title="Chat Box: Import & Save Songs to Library">
+          <button class="chat-import-trigger-btn header-tool-btn" id="btn-header-open-chat" title="Chat Box: Import & Save Songs to Library">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/></svg>
-            <span>💬 Chat Importer</span>
+            <span class="btn-text-full">💬 Chat Importer</span>
+            <span class="btn-text-short">Chat</span>
           </button>
           <div class="dev-badge-header" style="display:inline-flex; align-items:center; gap:6px; background:rgba(29,185,84,0.15); border:1px solid rgba(29,185,84,0.4); border-radius:9999px; padding:5px 12px; font-size:0.75rem; font-weight:700; color:#1ed760; letter-spacing:0.02em;">
             ⚡ Developed by Ben 10
           </div>
-          <button class="live-source-toggle active" id="btn-toggle-live" title="Toggle Live Web Catalog">
+          <button class="live-source-toggle header-tool-btn active" id="btn-toggle-live" title="Toggle Live Web Catalog">
             <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:currentColor;"></span>
-            <span>Live Music Engine</span>
+            <span class="btn-text-full">Live Music Engine</span>
+            <span class="btn-text-short">Live</span>
           </button>
 
           <!-- AUTH CONTROLS -->
@@ -891,6 +894,6 @@ Or write: 'Hey add Shape of You, Perfect, and Faded to my library'"></textarea>
   </div>
 
   <audio id="audio-engine" preload="none"></audio>
-  <script src="app.js?v=13" defer></script>
+  <script src="app.js?v=14" defer></script>
 </body>
 </html>

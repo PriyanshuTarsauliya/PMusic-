@@ -215,6 +215,7 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 16px;
   background-color: rgba(18, 18, 18, 0.85);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
@@ -224,9 +225,19 @@ html, body {
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
+.top-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1 1 auto;
+  min-width: 220px;
+  max-width: 520px;
+}
+
 .nav-history-buttons {
   display: flex;
   gap: 8px;
+  flex-shrink: 0;
 }
 
 .nav-circle-btn {
@@ -240,6 +251,7 @@ html, body {
   align-items: center;
   justify-content: center;
   cursor: pointer;
+  flex-shrink: 0;
   transition: all var(--transition-fast);
 }
 
@@ -258,8 +270,11 @@ html, body {
   position: relative;
   display: flex;
   align-items: center;
-  width: 380px;
-  margin-left: 16px;
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 180px;
+  max-width: 440px;
+  margin-left: 0;
 }
 
 .search-input-field {
@@ -275,6 +290,7 @@ html, body {
   font-weight: 500;
   outline: none;
   transition: all var(--transition-fast);
+  box-sizing: border-box;
 }
 
 .search-input-field:hover {
@@ -341,22 +357,38 @@ html, body {
 .header-right-tools {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 8px;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.header-tool-btn,
+.feedback-trigger-btn,
+.chat-import-trigger-btn,
+.live-source-toggle {
+  height: 36px;
+  padding: 0 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border-radius: 500px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: all var(--transition-fast);
+  box-sizing: border-box;
+}
+
+.btn-text-short {
+  display: none;
 }
 
 .live-source-toggle {
-  display: flex;
-  align-items: center;
-  gap: 8px;
   background: var(--spotify-surface);
-  padding: 6px 12px;
-  border-radius: 500px;
-  font-size: 0.78rem;
-  font-weight: 600;
   color: var(--spotify-subdued);
-  cursor: pointer;
   border: 1px solid var(--spotify-divider);
-  transition: all var(--transition-fast);
 }
 
 .live-source-toggle:hover {
@@ -368,6 +400,53 @@ html, body {
   color: var(--spotify-green);
   border-color: rgba(30, 215, 96, 0.4);
   background: rgba(30, 215, 96, 0.1);
+}
+
+/* Header Responsive Adaptations */
+@media (max-width: 1550px) {
+  .dev-badge-header {
+    display: none !important;
+  }
+}
+
+@media (max-width: 1400px) {
+  #btn-header-feedback {
+    display: none !important;
+  }
+  .header-right-tools {
+    gap: 6px;
+  }
+}
+
+@media (max-width: 1260px) {
+  .btn-text-full {
+    display: none !important;
+  }
+  .btn-text-short {
+    display: inline !important;
+  }
+  .search-keyboard-hint {
+    display: none !important;
+  }
+  .header-tool-btn,
+  .live-source-toggle {
+    padding: 0 10px;
+  }
+}
+
+@media (max-width: 1080px) {
+  .header-tool-btn span,
+  .live-source-toggle span:last-child {
+    display: none !important;
+  }
+  .header-tool-btn,
+  .live-source-toggle {
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    justify-content: center;
+    border-radius: 50%;
+  }
 }
 
 .user-avatar-pill {
@@ -2270,13 +2349,6 @@ html, body {
   z-index: 9998;
 }
 
-.top-header-left {
-  display: flex;
-  align-items: center;
-  flex: 1;
-  min-width: 0;
-}
-
 /* --------------------------------------------------------------------------
    TABLET ADAPTATIONS (max-width: 1024px)
    -------------------------------------------------------------------------- */
@@ -2286,7 +2358,8 @@ html, body {
   }
 
   .search-input-wrapper {
-    width: 260px;
+    min-width: 180px;
+    max-width: 340px;
   }
 
   .app-player-footer {
