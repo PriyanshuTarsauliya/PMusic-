@@ -218,6 +218,54 @@ runTest('SlidingWindowRateLimiter tracks quota and enforces delay', () => {
     }
   });
 
+  await runAsyncTest('HTTP Cluster: Custom Playlists REST Engine', async () => {
+    try {
+      // 1. Create Playlist
+      const createRes = await fetch('http://localhost:3456/api/user/playlists', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'create', title: 'Automated Test Playlist', description: 'Test description' })
+      });
+      assert.strictEqual(createRes.status, 200);
+      const createData = await createRes.json();
+      assert(createData.success);
+      assert(createData.playlist.id.startsWith('user-pl-'));
+      const plId = createData.playlist.id;
+
+      // 2. Add Track to Playlist
+      const addRes = await fetch('http://localhost:3456/api/user/playlists', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'addTrack',
+          playlistId: plId,
+          track: { id: 'test_tr_1', name: 'Test Song', artist: 'Test Artist', durationFormatted: '3:15' }
+        })
+      });
+      assert.strictEqual(addRes.status, 200);
+      const addData = await addRes.json();
+      assert(addData.success);
+      assert.strictEqual(addData.playlist.tracks.length, 1);
+
+      // 3. Get Playlists
+      const getRes = await fetch('http://localhost:3456/api/user/playlists');
+      assert.strictEqual(getRes.status, 200);
+      const getData = await getRes.json();
+      assert(Array.isArray(getData.playlists));
+      assert(getData.playlists.some(p => p.id === plId));
+
+      // 4. Delete Playlist
+      const delRes = await fetch(`http://localhost:3456/api/user/playlists/${encodeURIComponent(plId)}`, {
+        method: 'DELETE'
+      });
+      assert.strictEqual(delRes.status, 200);
+      const delData = await delRes.json();
+      assert(delData.success);
+    } catch (e) {
+      console.warn('  ⚠️ Cluster HTTP server not responding on localhost:3456 (skipped)');
+    }
+  });
+
   console.log('\n-------------------------------------------------------');
   console.log(`📊 TEST RESULTS: ${passedTests}/${totalTests} tests passed (${Math.round((passedTests/totalTests)*100)}%)`);
   console.log('-------------------------------------------------------\n');

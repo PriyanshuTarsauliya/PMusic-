@@ -120,6 +120,22 @@ const LIBRARY_FILE = path.join(DATA_DIR, 'library.json');
 const USERS_DB_FILE = path.join(DATA_DIR, 'users.json');
 const FEEDBACK_FILE = path.join(DATA_DIR, 'feedback.json');
 const STREAM_LEASES_FILE = path.join(DATA_DIR, 'stream_leases.json');
+const CUSTOM_PLAYLISTS_FILE = path.join(DATA_DIR, 'custom_playlists.json');
+
+function getSavedPlaylists() {
+  try {
+    if (fs.existsSync(CUSTOM_PLAYLISTS_FILE)) {
+      return JSON.parse(fs.readFileSync(CUSTOM_PLAYLISTS_FILE, 'utf8') || '[]');
+    }
+  } catch (e) {
+    console.error('Error reading custom_playlists.json:', e.message);
+  }
+  return [];
+}
+
+function savePlaylists(playlists) {
+  return safeWriteJson(CUSTOM_PLAYLISTS_FILE, playlists);
+}
 
 function getStreamLeasesDb() {
   try {
@@ -1564,6 +1580,75 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(400, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: 'Invalid JSON payload' }));
     }
+    return;
+  }
+
+  // API Route: Custom User Playlists
+  if (pathname === '/api/user/playlists' && req.method === 'GET') {
+    const playlists = getSavedPlaylists();
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ playlists }));
+    return;
+  }
+
+  if (pathname === '/api/user/playlists' && req.method === 'POST') {
+    try {
+      const body = await readJsonBody(req);
+      const playlists = getSavedPlaylists();
+      if (body.action === 'create') {
+        const newPl = {
+          id: 'user-pl-' + Date.now().toString(36) + '-' + Math.random().toString(36).substr(2, 5),
+          title: (body.title || '').trim() || ('My Playlist #' + (playlists.length + 1)),
+          description: (body.description || '').trim() || 'Created by user',
+          artwork: body.artwork || 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=400&auto=format&fit=crop&q=80',
+          curator: body.curator || 'You',
+          createdAt: Date.now(),
+          tracks: Array.isArray(body.tracks) ? body.tracks : []
+        };
+        playlists.unshift(newPl);
+        savePlaylists(playlists);
+        res.writeHead(201, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true, playlist: newPl }));
+        return;
+      } else if (body.action === 'addTrack') {
+        const pl = playlists.find(p => p.id === body.playlistId);
+        if (!pl) {
+          res.writeHead(404, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Playlist not found' }));
+          return;
+        }
+        if (!pl.tracks) pl.tracks = [];
+        if (!pl.tracks.some(t => t.id === body.track.id)) {
+          pl.tracks.push(body.track);
+          savePlaylists(playlists);
+        }
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true, playlist: pl }));
+        return;
+      } else if (body.action === 'removeTrack') {
+        const pl = playlists.find(p => p.id === body.playlistId);
+        if (pl && pl.tracks) {
+          pl.tracks = pl.tracks.filter(t => t.id !== body.trackId);
+          savePlaylists(playlists);
+        }
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true, playlist: pl }));
+        return;
+      }
+    } catch (e) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: e.message }));
+      return;
+    }
+  }
+
+  if (pathname.startsWith('/api/user/playlists/') && req.method === 'DELETE') {
+    const id = pathname.replace('/api/user/playlists/', '');
+    let playlists = getSavedPlaylists();
+    playlists = playlists.filter(p => p.id !== id);
+    savePlaylists(playlists);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: true }));
     return;
   }
 

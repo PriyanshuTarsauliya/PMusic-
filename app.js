@@ -394,6 +394,11 @@ const State = {
   followingArtists: new Set(),
   authToken: initialAuth.token,
   currentUser: initialAuth.user,
+  userPlaylists: [],
+  sleepTimer: null,
+  sleepTimerEndsAt: null,
+  crossfadeSec: 0,
+  contextMenuTrack: null,
   currentSearchResults: {
     topResult: null,
     tracks: [],
@@ -2730,10 +2735,22 @@ function renderOverviewResults() {
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
           </button>
           <span class="track-duration-text">${track.durationFormatted}</span>
+          <button class="track-more-btn" title="More options" aria-label="More options">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <circle cx="5" cy="12" r="2"></circle>
+              <circle cx="12" cy="12" r="2"></circle>
+              <circle cx="19" cy="12" r="2"></circle>
+            </svg>
+          </button>
         </div>
       `;
 
       row.addEventListener('click', (e) => {
+        if (e.target.closest('.track-more-btn')) {
+          e.stopPropagation();
+          openTrackContextMenu(e, track);
+          return;
+        }
         if (e.target.closest('.track-queue-btn')) {
           e.stopPropagation();
           addToQueue(track);
@@ -2759,6 +2776,10 @@ function renderOverviewResults() {
         }
         playFullTrack(track);
         addRecentItem(track);
+      });
+
+      row.addEventListener('contextmenu', (e) => {
+        openTrackContextMenu(e, track);
       });
 
       songsList.appendChild(row);
@@ -2962,7 +2983,7 @@ async function getAlbumTracks(album) {
 
 async function getPlaylistTracks(playlist) {
   if (!playlist) return [];
-  if (playlist.tracks && playlist.tracks.length > 0) return playlist.tracks;
+  if (Array.isArray(playlist.tracks)) return playlist.tracks;
   if (Array.isArray(playlist.trackIds) && playlist.trackIds.length > 0) {
     const matched = CURATED_TRACKS.filter(t => playlist.trackIds.includes(t.id));
     if (matched.length > 0) return matched;
@@ -3160,6 +3181,7 @@ async function showAlbumDetail(album, pushHistory = true) {
           <th>Artist</th>
           <th style="width:50px; text-align:center;">Queue</th>
           <th style="width:80px; text-align:right;">Duration</th>
+          <th style="width:40px; text-align:center;"></th>
         </tr>
       </thead>
       <tbody></tbody>
@@ -3208,9 +3230,23 @@ async function showAlbumDetail(album, pushHistory = true) {
         </button>
       </td>
       <td style="text-align:right; color:var(--spotify-subdued); font-variant-numeric:tabular-nums;">${track.durationFormatted || '3:20'}</td>
+      <td style="text-align:center;">
+        <button class="track-more-btn" title="More options" aria-label="More options">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <circle cx="5" cy="12" r="2"></circle>
+            <circle cx="12" cy="12" r="2"></circle>
+            <circle cx="19" cy="12" r="2"></circle>
+          </svg>
+        </button>
+      </td>
     `;
 
     row.addEventListener('click', (e) => {
+      if (e.target.closest('.track-more-btn')) {
+        e.stopPropagation();
+        openTrackContextMenu(e, track);
+        return;
+      }
       if (e.target.closest('.track-queue-btn')) {
         e.stopPropagation();
         addToQueue(track);
@@ -3231,6 +3267,10 @@ async function showAlbumDetail(album, pushHistory = true) {
       renderQueueList();
       playFullTrack(track);
       addRecentItem(track);
+    });
+
+    row.addEventListener('contextmenu', (e) => {
+      openTrackContextMenu(e, track);
     });
 
     tbody.appendChild(row);
@@ -3314,6 +3354,7 @@ async function showArtistDetail(artist, pushHistory = true) {
           <th>Album</th>
           <th style="width:50px; text-align:center;">Queue</th>
           <th style="width:80px; text-align:right;">Duration</th>
+          <th style="width:40px; text-align:center;"></th>
         </tr>
       </thead>
       <tbody id="artist-popular-tbody"></tbody>
@@ -3375,9 +3416,23 @@ async function showArtistDetail(artist, pushHistory = true) {
         </button>
       </td>
       <td style="text-align:right; color:var(--spotify-subdued); font-variant-numeric:tabular-nums;">${track.durationFormatted || '3:20'}</td>
+      <td style="text-align:center;">
+        <button class="track-more-btn" title="More options" aria-label="More options">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <circle cx="5" cy="12" r="2"></circle>
+            <circle cx="12" cy="12" r="2"></circle>
+            <circle cx="19" cy="12" r="2"></circle>
+          </svg>
+        </button>
+      </td>
     `;
 
     row.addEventListener('click', (e) => {
+      if (e.target.closest('.track-more-btn')) {
+        e.stopPropagation();
+        openTrackContextMenu(e, track);
+        return;
+      }
       if (e.target.closest('.track-queue-btn')) {
         e.stopPropagation();
         addToQueue(track);
@@ -3398,6 +3453,10 @@ async function showArtistDetail(artist, pushHistory = true) {
       renderQueueList();
       playFullTrack(track);
       addRecentItem(track);
+    });
+
+    row.addEventListener('contextmenu', (e) => {
+      openTrackContextMenu(e, track);
     });
 
     tbody.appendChild(row);
@@ -3457,11 +3516,13 @@ async function showPlaylistDetail(playlist, pushHistory = true) {
   const tracks = await getPlaylistTracks(playlist);
   const isPlayingThis = State.currentPlayingContext && State.currentPlayingContext.id === playlist.id && State.isPlaying;
 
+  const isCustom = State.userPlaylists && State.userPlaylists.some(p => p.id === playlist.id);
+
   container.innerHTML = `
     <div class="playlist-detail-header">
       <img class="playlist-cover-img" src="${playlist.artwork || playlist.image}" alt="${playlist.title}">
       <div style="display:flex; flex-direction:column; gap:6px;">
-        <span style="font-size:0.75rem; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:var(--spotify-subdued);">Public Playlist</span>
+        <span style="font-size:0.75rem; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:var(--spotify-subdued);">${isCustom ? 'Your Playlist' : 'Public Playlist'}</span>
         <h1 style="font-size:clamp(1.8rem, 4vw, 2.6rem); font-weight:800; line-height:1.1; margin:0; color:var(--spotify-white);">${playlist.title}</h1>
         <div style="font-size:0.9rem; color:var(--spotify-subdued); display:flex; align-items:center; gap:8px; margin-top:4px;">
           <span style="font-weight:700; color:var(--spotify-white);">${playlist.curator || 'Spotify'}</span>
@@ -3477,6 +3538,11 @@ async function showPlaylistDetail(playlist, pushHistory = true) {
           <button class="album-back-btn" id="btn-playlist-back" style="background:transparent; border:1px solid rgba(255,255,255,0.2); color:var(--spotify-white); padding:8px 18px; border-radius:20px; font-size:0.85rem; font-weight:600; cursor:pointer;">
             &larr; Back
           </button>
+          ${isCustom ? `
+            <button class="album-back-btn" id="btn-playlist-delete" style="background:transparent; border:1px solid rgba(255,100,100,0.4); color:#ff6b6b; padding:8px 18px; border-radius:20px; font-size:0.85rem; font-weight:600; cursor:pointer; transition:all 0.2s;">
+              Delete Playlist
+            </button>
+          ` : ''}
         </div>
       </div>
     </div>
@@ -3489,6 +3555,7 @@ async function showPlaylistDetail(playlist, pushHistory = true) {
           <th>Album</th>
           <th style="width:50px; text-align:center;">Queue</th>
           <th style="width:80px; text-align:right;">Duration</th>
+          <th style="width:40px; text-align:center;"></th>
         </tr>
       </thead>
       <tbody id="playlist-tracks-tbody"></tbody>
@@ -3500,6 +3567,21 @@ async function showPlaylistDetail(playlist, pushHistory = true) {
 
   const backBtn = container.querySelector('#btn-playlist-back');
   if (backBtn) backBtn.onclick = () => NavHistory.back();
+
+  const delBtn = container.querySelector('#btn-playlist-delete');
+  if (delBtn) {
+    delBtn.onclick = async () => {
+      if (!confirm(`Delete playlist "${playlist.title}"?`)) return;
+      try {
+        await fetch(`/api/user/playlists/${encodeURIComponent(playlist.id)}`, { method: 'DELETE' });
+      } catch (_) {}
+      State.userPlaylists = State.userPlaylists.filter(p => p.id !== playlist.id);
+      saveUserPlaylistsLocal();
+      renderSidebarPlaylists();
+      showFloatingToast(`Playlist "${playlist.title}" deleted`);
+      NavHistory.back();
+    };
+  }
 
   const tbody = container.querySelector('#playlist-tracks-tbody');
   tracks.forEach((track, index) => {
@@ -3528,9 +3610,23 @@ async function showPlaylistDetail(playlist, pushHistory = true) {
         </button>
       </td>
       <td style="text-align:right; color:var(--spotify-subdued); font-variant-numeric:tabular-nums;">${track.durationFormatted || '3:20'}</td>
+      <td style="text-align:center;">
+        <button class="track-more-btn" title="More options" aria-label="More options">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <circle cx="5" cy="12" r="2"></circle>
+            <circle cx="12" cy="12" r="2"></circle>
+            <circle cx="19" cy="12" r="2"></circle>
+          </svg>
+        </button>
+      </td>
     `;
 
     row.addEventListener('click', (e) => {
+      if (e.target.closest('.track-more-btn')) {
+        e.stopPropagation();
+        openTrackContextMenu(e, track);
+        return;
+      }
       if (e.target.closest('.track-queue-btn')) {
         e.stopPropagation();
         addToQueue(track);
@@ -3556,6 +3652,10 @@ async function showPlaylistDetail(playlist, pushHistory = true) {
       renderQueueList();
       playFullTrack(track);
       addRecentItem(track);
+    });
+
+    row.addEventListener('contextmenu', (e) => {
+      openTrackContextMenu(e, track);
     });
 
     tbody.appendChild(row);
@@ -3794,6 +3894,7 @@ function renderDrilldownResults(category) {
           <th>Title</th>
           <th>Album</th>
           <th style="width:80px; text-align:right;">Duration</th>
+          <th style="width:40px; text-align:center;"></th>
         </tr>
       </thead>
       <tbody></tbody>
@@ -3819,9 +3920,23 @@ function renderDrilldownResults(category) {
           <span class="clickable-album-link">${track.album || 'Single'}</span>
         </td>
         <td style="text-align:right; color:var(--spotify-subdued); font-variant-numeric:tabular-nums;">${track.durationFormatted}</td>
+        <td style="text-align:center;">
+          <button class="track-more-btn" title="More options" aria-label="More options">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <circle cx="5" cy="12" r="2"></circle>
+              <circle cx="12" cy="12" r="2"></circle>
+              <circle cx="19" cy="12" r="2"></circle>
+            </svg>
+          </button>
+        </td>
       `;
 
       row.addEventListener('click', (e) => {
+        if (e.target.closest('.track-more-btn')) {
+          e.stopPropagation();
+          openTrackContextMenu(e, track);
+          return;
+        }
         if (e.target.closest('.clickable-artist-link')) {
           e.stopPropagation();
           showArtistDetail({ name: track.artist });
@@ -3838,6 +3953,10 @@ function renderDrilldownResults(category) {
         }
         playFullTrack(track);
         addRecentItem(track);
+      });
+
+      row.addEventListener('contextmenu', (e) => {
+        openTrackContextMenu(e, track);
       });
 
       tbody.appendChild(row);
@@ -4652,6 +4771,541 @@ document.addEventListener('DOMContentLoaded', () => {
     btnLibClearAll.addEventListener('click', clearUserLibrary);
   }
 
+  // ==========================================================================
+  // CUSTOM USER PLAYLISTS, CONTEXT MENU, SLEEP TIMER & EQUALIZER ENGINES
+  // ==========================================================================
+
+  async function loadUserPlaylists() {
+    try {
+      const res = await fetch('/api/user/playlists');
+      if (res.ok) {
+        const data = await res.json();
+        State.userPlaylists = data.playlists || [];
+        saveUserPlaylistsLocal();
+        renderSidebarPlaylists();
+        return;
+      }
+    } catch (e) {
+      console.warn('Failed to fetch user playlists from backend:', e);
+    }
+    try {
+      const local = localStorage.getItem('pmusic_user_playlists');
+      State.userPlaylists = local ? JSON.parse(local) : [];
+    } catch (_) {
+      State.userPlaylists = [];
+    }
+    renderSidebarPlaylists();
+  }
+
+  function saveUserPlaylistsLocal() {
+    try {
+      localStorage.setItem('pmusic_user_playlists', JSON.stringify(State.userPlaylists));
+    } catch (_) {}
+  }
+
+  function renderSidebarPlaylists() {
+    const scrollContainer = document.getElementById('sidebar-library-scroll');
+    if (!scrollContainer) return;
+
+    let container = document.getElementById('sidebar-custom-playlists-shelf');
+    if (!container) {
+      container = document.createElement('div');
+      container.id = 'sidebar-custom-playlists-shelf';
+      scrollContainer.insertBefore(container, scrollContainer.firstChild);
+    }
+
+    if (!State.userPlaylists || State.userPlaylists.length === 0) {
+      container.innerHTML = '';
+      return;
+    }
+
+    container.innerHTML = `
+      <div style="font-size:0.75rem; font-weight:700; color:var(--spotify-subdued); text-transform:uppercase; letter-spacing:0.05em; padding:8px 8px 4px 8px;">Custom Playlists (${State.userPlaylists.length})</div>
+    `;
+
+    State.userPlaylists.forEach(pl => {
+      const row = document.createElement('div');
+      row.className = 'sidebar-library-row';
+      row.style.cssText = 'display:flex; align-items:center; gap:10px; padding:6px 8px; border-radius:6px; cursor:pointer; transition:background 0.15s ease;';
+      row.innerHTML = `
+        <img src="${pl.artwork}" style="width:36px; height:36px; border-radius:4px; object-fit:cover; flex-shrink:0;">
+        <div style="flex:1; min-width:0;">
+          <div style="font-size:0.85rem; font-weight:600; color:#fff; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${pl.title}</div>
+          <div style="font-size:0.74rem; color:var(--spotify-subdued);">${(pl.tracks || []).length} songs</div>
+        </div>
+      `;
+      row.onmouseenter = () => row.style.background = 'rgba(255,255,255,0.08)';
+      row.onmouseleave = () => row.style.background = 'transparent';
+      row.onclick = () => showPlaylistDetail(pl);
+      container.appendChild(row);
+    });
+  }
+
+  function openCreatePlaylistModal(initialTrack = null) {
+    const overlay = document.getElementById('create-playlist-modal-overlay');
+    const input = document.getElementById('input-create-playlist-name');
+    const desc = document.getElementById('input-create-playlist-desc');
+    if (input) input.value = `My Playlist #${State.userPlaylists.length + 1}`;
+    if (desc) desc.value = '';
+    if (overlay) overlay.style.display = 'flex';
+    if (input) {
+      input.focus();
+      input.select();
+    }
+    overlay._initialTrack = initialTrack;
+  }
+
+  function closeCreatePlaylistModal() {
+    const overlay = document.getElementById('create-playlist-modal-overlay');
+    if (overlay) overlay.style.display = 'none';
+  }
+
+  async function submitCreatePlaylist() {
+    const overlay = document.getElementById('create-playlist-modal-overlay');
+    const input = document.getElementById('input-create-playlist-name');
+    const desc = document.getElementById('input-create-playlist-desc');
+    const title = (input ? input.value : '').trim() || `My Playlist #${State.userPlaylists.length + 1}`;
+    const description = (desc ? desc.value : '').trim() || 'Created by you';
+    const artwork = 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=400&auto=format&fit=crop&q=80';
+    const initialTrack = overlay ? overlay._initialTrack : null;
+
+    closeCreatePlaylistModal();
+
+    const newPl = {
+      id: 'user-pl-' + Date.now().toString(36) + '-' + Math.random().toString(36).substr(2, 5),
+      title,
+      description,
+      artwork,
+      curator: State.currentUser || 'You',
+      createdAt: Date.now(),
+      tracks: initialTrack ? [initialTrack] : []
+    };
+
+    try {
+      const res = await fetch('/api/user/playlists', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'create', title, description, artwork, curator: State.currentUser || 'You', tracks: newPl.tracks })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.playlist) {
+          State.userPlaylists.unshift(data.playlist);
+          saveUserPlaylistsLocal();
+          renderSidebarPlaylists();
+          showPlaylistDetail(data.playlist);
+          showFloatingToast(`Created playlist "${title}"`);
+          return;
+        }
+      }
+    } catch (_) {}
+
+    State.userPlaylists.unshift(newPl);
+    saveUserPlaylistsLocal();
+    renderSidebarPlaylists();
+    showPlaylistDetail(newPl);
+    showFloatingToast(`Created playlist "${title}"`);
+  }
+
+  async function addTrackToUserPlaylist(playlistId, track) {
+    const pl = State.userPlaylists.find(p => p.id === playlistId);
+    if (!pl) return;
+    if (!pl.tracks) pl.tracks = [];
+    if (pl.tracks.some(t => t.id === track.id)) {
+      showFloatingToast(`"${track.name}" is already in "${pl.title}"`);
+      return;
+    }
+    pl.tracks.push(track);
+    saveUserPlaylistsLocal();
+    renderSidebarPlaylists();
+
+    try {
+      await fetch('/api/user/playlists', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'addTrack', playlistId, track })
+      });
+    } catch (_) {}
+
+    showFloatingToast(`Added "${track.name}" to "${pl.title}"`);
+  }
+
+  // --- Track Context Menu ---
+  function openTrackContextMenu(e, track) {
+    e.stopPropagation();
+    e.preventDefault();
+    State.contextMenuTrack = track;
+
+    const menu = document.getElementById('track-context-menu');
+    if (!menu) return;
+
+    const likeLabel = document.getElementById('ctx-like-label');
+    if (likeLabel) {
+      likeLabel.textContent = State.likedTracks.has(track.id) ? 'Remove from your Liked Songs' : 'Save to your Liked Songs';
+    }
+
+    const sub = document.getElementById('ctx-playlists-submenu');
+    if (sub) {
+      sub.innerHTML = `
+        <div class="submenu-item" id="ctx-sub-create-new">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+          <span>+ New Playlist</span>
+        </div>
+        <div style="height:1px; background:rgba(255,255,255,0.08); margin:4px 0;"></div>
+      `;
+
+      if (State.userPlaylists.length === 0) {
+        sub.innerHTML += `<div style="padding:6px 10px; font-size:0.75rem; color:#888;">No playlists yet</div>`;
+      } else {
+        State.userPlaylists.forEach(pl => {
+          const item = document.createElement('div');
+          item.className = 'submenu-item';
+          item.innerHTML = `
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
+            <span style="overflow:hidden; text-overflow:ellipsis;">${pl.title}</span>
+          `;
+          item.onclick = (ev) => {
+            ev.stopPropagation();
+            addTrackToUserPlaylist(pl.id, track);
+            closeTrackContextMenu();
+          };
+          sub.appendChild(item);
+        });
+      }
+
+      const createBtn = sub.querySelector('#ctx-sub-create-new');
+      if (createBtn) {
+        createBtn.onclick = (ev) => {
+          ev.stopPropagation();
+          closeTrackContextMenu();
+          openCreatePlaylistModal(track);
+        };
+      }
+    }
+
+    const x = Math.min(e.clientX, window.innerWidth - 220);
+    const y = Math.min(e.clientY, window.innerHeight - 280);
+    menu.style.left = `${Math.max(10, x)}px`;
+    menu.style.top = `${Math.max(10, y)}px`;
+    menu.style.display = 'block';
+  }
+
+  function closeTrackContextMenu() {
+    const menu = document.getElementById('track-context-menu');
+    if (menu) menu.style.display = 'none';
+    const sub = document.getElementById('ctx-playlists-submenu');
+    if (sub) sub.style.display = 'none';
+  }
+
+  // Bind context menu items
+  const ctxAddToPl = document.getElementById('ctx-add-to-playlist');
+  if (ctxAddToPl) {
+    ctxAddToPl.addEventListener('mouseenter', () => {
+      const sub = document.getElementById('ctx-playlists-submenu');
+      if (sub) sub.style.display = 'block';
+    });
+    ctxAddToPl.addEventListener('mouseleave', (e) => {
+      const sub = document.getElementById('ctx-playlists-submenu');
+      if (sub && !sub.contains(e.relatedTarget)) sub.style.display = 'none';
+    });
+  }
+
+  const ctxAddToQueue = document.getElementById('ctx-add-to-queue');
+  if (ctxAddToQueue) {
+    ctxAddToQueue.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (State.contextMenuTrack) addToQueue(State.contextMenuTrack);
+      closeTrackContextMenu();
+    });
+  }
+
+  const ctxToggleLike = document.getElementById('ctx-toggle-like');
+  if (ctxToggleLike) {
+    ctxToggleLike.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (State.contextMenuTrack) toggleLikeTrack(State.contextMenuTrack.id);
+      closeTrackContextMenu();
+    });
+  }
+
+  const ctxGoArtist = document.getElementById('ctx-go-artist');
+  if (ctxGoArtist) {
+    ctxGoArtist.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (State.contextMenuTrack) showArtistDetail({ name: State.contextMenuTrack.artist });
+      closeTrackContextMenu();
+    });
+  }
+
+  const ctxGoAlbum = document.getElementById('ctx-go-album');
+  if (ctxGoAlbum) {
+    ctxGoAlbum.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (State.contextMenuTrack) {
+        showAlbumDetail({ title: State.contextMenuTrack.album, artist: State.contextMenuTrack.artist, artwork: State.contextMenuTrack.artwork });
+      }
+      closeTrackContextMenu();
+    });
+  }
+
+  const ctxCopyLink = document.getElementById('ctx-copy-link');
+  if (ctxCopyLink) {
+    ctxCopyLink.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (State.contextMenuTrack) {
+        const link = `${window.location.origin}/?track=${encodeURIComponent(State.contextMenuTrack.id)}`;
+        navigator.clipboard.writeText(link).catch(() => {});
+        showFloatingToast(`Link copied: ${State.contextMenuTrack.name}`);
+      }
+      closeTrackContextMenu();
+    });
+  }
+
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('#track-context-menu')) {
+      closeTrackContextMenu();
+    }
+    if (!e.target.closest('#sleep-timer-popover') && !e.target.closest('#btn-toggle-sleep-timer')) {
+      closeSleepTimerPopover();
+    }
+  });
+
+  // --- Sleep Timer Engine ---
+  let sleepTimerIntervalId = null;
+
+  function setSleepTimer(mins) {
+    clearInterval(sleepTimerIntervalId);
+    const timerBtn = document.getElementById('btn-toggle-sleep-timer');
+
+    document.querySelectorAll('.sleep-timer-opt').forEach(opt => {
+      const optMins = opt.getAttribute('data-mins');
+      opt.classList.toggle('active', String(optMins) === String(mins));
+    });
+
+    if (mins === 0 || mins === '0') {
+      State.sleepTimer = null;
+      State.sleepTimerEndsAt = null;
+      if (timerBtn) {
+        timerBtn.classList.remove('is-active');
+        timerBtn.title = 'Sleep Timer';
+        timerBtn.style.color = '';
+      }
+      showFloatingToast('Sleep timer turned off');
+      return;
+    }
+
+    if (mins === 'end') {
+      State.sleepTimer = 'end';
+      if (timerBtn) {
+        timerBtn.classList.add('is-active');
+        timerBtn.title = 'Sleep Timer: End of track';
+        timerBtn.style.color = '#1ed760';
+      }
+      showFloatingToast('Sleep timer set: Audio will pause at end of this song');
+      return;
+    }
+
+    const durationMs = Number(mins) * 60 * 1000;
+    State.sleepTimer = Number(mins);
+    State.sleepTimerEndsAt = Date.now() + durationMs;
+
+    if (timerBtn) {
+      timerBtn.classList.add('is-active');
+      timerBtn.style.color = '#1ed760';
+    }
+
+    showFloatingToast(`Sleep timer set: Stopping audio in ${mins} minutes`);
+
+    sleepTimerIntervalId = setInterval(() => {
+      const remainingSec = Math.max(0, Math.round((State.sleepTimerEndsAt - Date.now()) / 1000));
+      if (timerBtn) {
+        timerBtn.title = `Sleep Timer: ${Math.floor(remainingSec / 60)}m ${remainingSec % 60}s remaining`;
+      }
+      if (remainingSec <= 0) {
+        clearInterval(sleepTimerIntervalId);
+        if (State.isPlaying) {
+          togglePlayPause();
+          showFloatingToast('🌙 Sleep timer finished: Audio playback paused.');
+        }
+        setSleepTimer(0);
+      }
+    }, 1000);
+  }
+
+  function openSleepTimerPopover() {
+    const popover = document.getElementById('sleep-timer-popover');
+    const btn = document.getElementById('btn-toggle-sleep-timer');
+    if (!popover || !btn) return;
+
+    if (popover.style.display === 'block') {
+      popover.style.display = 'none';
+      return;
+    }
+
+    const rect = btn.getBoundingClientRect();
+    popover.style.bottom = `${window.innerHeight - rect.top + 8}px`;
+    popover.style.left = `${Math.min(rect.left - 60, window.innerWidth - 220)}px`;
+    popover.style.display = 'block';
+  }
+
+  function closeSleepTimerPopover() {
+    const popover = document.getElementById('sleep-timer-popover');
+    if (popover) popover.style.display = 'none';
+  }
+
+  const btnSleepTimer = document.getElementById('btn-toggle-sleep-timer');
+  if (btnSleepTimer) {
+    btnSleepTimer.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openSleepTimerPopover();
+    });
+  }
+
+  document.querySelectorAll('.sleep-timer-opt').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const mins = btn.getAttribute('data-mins');
+      setSleepTimer(mins === 'end' ? 'end' : Number(mins));
+      closeSleepTimerPopover();
+    });
+  });
+
+  // --- Equalizer & Crossfade Engine (Web Audio API) ---
+  let webAudioCtx = null;
+  let eqSource = null;
+  const eqBands = {};
+
+  function initWebAudioEQ() {
+    if (webAudioCtx) return;
+    const audioEl = document.getElementById('audio-engine');
+    if (!audioEl) return;
+
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+      webAudioCtx = new AudioCtx();
+      eqSource = webAudioCtx.createMediaElementSource(audioEl);
+
+      const freqs = [60, 230, 910, 3600, 14000];
+      const types = ['lowshelf', 'peaking', 'peaking', 'peaking', 'highshelf'];
+
+      let prevNode = eqSource;
+      freqs.forEach((freq, i) => {
+        const filter = webAudioCtx.createBiquadFilter();
+        filter.type = types[i];
+        filter.frequency.value = freq;
+        filter.gain.value = 0;
+        prevNode.connect(filter);
+        prevNode = filter;
+        eqBands[freq] = filter;
+      });
+
+      prevNode.connect(webAudioCtx.destination);
+    } catch (e) {
+      console.warn('Web Audio EQ initialization:', e.message);
+    }
+  }
+
+  function applyEqBandGain(freq, gain) {
+    initWebAudioEQ();
+    if (webAudioCtx && webAudioCtx.state === 'suspended') {
+      webAudioCtx.resume();
+    }
+    if (eqBands[freq]) {
+      eqBands[freq].gain.value = Number(gain);
+    }
+    const label = document.getElementById(`eq-val-${freq}`);
+    if (label) label.textContent = `${gain > 0 ? '+' : ''}${gain}dB`;
+  }
+
+  const EQ_PRESETS = {
+    flat: [0, 0, 0, 0, 0],
+    bass_boost: [6, 4, 1, 0, -1],
+    electronic: [4, 2, 0, 2, 4],
+    rock: [5, 3, -1, 2, 5],
+    acoustic: [3, 2, 1, 2, 3],
+    vocal: [-2, 0, 4, 3, 1]
+  };
+
+  function applyEqPreset(presetName) {
+    const gains = EQ_PRESETS[presetName] || EQ_PRESETS.flat;
+    const freqs = [60, 230, 910, 3600, 14000];
+    freqs.forEach((freq, i) => {
+      const slider = document.getElementById(`eq-band-${freq}`);
+      if (slider) slider.value = gains[i];
+      applyEqBandGain(freq, gains[i]);
+    });
+  }
+
+  function openEqualizerModal() {
+    const modal = document.getElementById('equalizer-modal-overlay');
+    if (modal) modal.style.display = 'flex';
+  }
+
+  function closeEqualizerModal() {
+    const modal = document.getElementById('equalizer-modal-overlay');
+    if (modal) modal.style.display = 'none';
+  }
+
+  const btnToggleEq = document.getElementById('btn-toggle-eq');
+  if (btnToggleEq) {
+    btnToggleEq.addEventListener('click', () => openEqualizerModal());
+  }
+
+  const btnCloseEq = document.getElementById('btn-close-eq-modal');
+  if (btnCloseEq) {
+    btnCloseEq.addEventListener('click', () => closeEqualizerModal());
+  }
+
+  const eqPresetSelect = document.getElementById('eq-preset-select');
+  if (eqPresetSelect) {
+    eqPresetSelect.addEventListener('change', (e) => applyEqPreset(e.target.value));
+  }
+
+  [60, 230, 910, 3600, 14000].forEach(freq => {
+    const slider = document.getElementById(`eq-band-${freq}`);
+    if (slider) {
+      slider.addEventListener('input', (e) => applyEqBandGain(freq, e.target.value));
+    }
+  });
+
+  const crossfadeSlider = document.getElementById('crossfade-slider');
+  const crossfadeLabel = document.getElementById('crossfade-val-label');
+  if (crossfadeSlider && crossfadeLabel) {
+    crossfadeSlider.addEventListener('input', (e) => {
+      State.crossfadeSec = Number(e.target.value);
+      crossfadeLabel.textContent = `${State.crossfadeSec}s`;
+    });
+  }
+
+  // Playlist Create Modal Buttons
+  const btnCreatePlaylist = document.getElementById('btn-create-playlist');
+  if (btnCreatePlaylist) {
+    btnCreatePlaylist.addEventListener('click', () => openCreatePlaylistModal());
+  }
+
+  const btnCloseCreatePl = document.getElementById('btn-close-create-playlist-modal');
+  const btnCancelCreatePl = document.getElementById('btn-cancel-create-playlist');
+  if (btnCloseCreatePl) btnCloseCreatePl.addEventListener('click', closeCreatePlaylistModal);
+  if (btnCancelCreatePl) btnCancelCreatePl.addEventListener('click', closeCreatePlaylistModal);
+
+  const btnSubmitCreatePl = document.getElementById('btn-submit-create-playlist');
+  if (btnSubmitCreatePl) {
+    btnSubmitCreatePl.addEventListener('click', submitCreatePlaylist);
+  }
+
+  // End-of-track hook for Sleep Timer "end"
+  const origNextTrack = nextTrack;
+  nextTrack = function() {
+    if (State.sleepTimer === 'end') {
+      if (State.isPlaying) togglePlayPause();
+      showFloatingToast('🌙 Sleep timer finished: Audio paused at end of track.');
+      setSleepTimer(0);
+      return;
+    }
+    origNextTrack.apply(this, arguments);
+  };
+
   // Mobile Sidebar Drawer & Backdrop Handlers
   const btnMobileMenu = document.getElementById('btn-mobile-menu');
   const btnSidebarClose = document.getElementById('btn-sidebar-close');
@@ -4958,6 +5612,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Initialize Library UI immediately from local storage for instant paint
   renderSidebarLibrary();
+  loadUserPlaylists();
   updatePlayerUI();
   logUbiEvent('hitSessionStart', 'desktop-find.browseAll');
 
