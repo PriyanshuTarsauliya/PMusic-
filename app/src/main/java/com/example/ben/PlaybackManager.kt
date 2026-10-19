@@ -41,10 +41,43 @@ object PlaybackManager {
 
     private var queueIndex: Int = 0
 
+    enum class RepeatMode {
+        OFF, ALL, ONE
+    }
+
+    var isShuffleEnabled: Boolean = false
+        private set
+
+    var repeatMode: RepeatMode = RepeatMode.OFF
+        private set
+
+    fun toggleShuffle(): Boolean {
+        isShuffleEnabled = !isShuffleEnabled
+        notifyPlaybackModes()
+        return isShuffleEnabled
+    }
+
+    fun toggleRepeat(): RepeatMode {
+        repeatMode = when (repeatMode) {
+            RepeatMode.OFF -> RepeatMode.ALL
+            RepeatMode.ALL -> RepeatMode.ONE
+            RepeatMode.ONE -> RepeatMode.OFF
+        }
+        notifyPlaybackModes()
+        return repeatMode
+    }
+
+    private fun notifyPlaybackModes() {
+        listeners.forEach {
+            it.onPlaybackModeChanged(isShuffleEnabled, repeatMode)
+        }
+    }
+
     interface PlaybackListener {
         fun onSongChanged(song: Song)
         fun onPlaybackStateChanged(isPlaying: Boolean)
         fun onProgressUpdate(currentPositionMs: Int, totalDurationMs: Int)
+        fun onPlaybackModeChanged(isShuffle: Boolean, repeatMode: RepeatMode) {}
     }
 
     private val listeners = mutableListOf<PlaybackListener>()
@@ -56,6 +89,7 @@ object PlaybackManager {
                 listener.onSongChanged(it)
                 listener.onPlaybackStateChanged(isPlaying)
             }
+            listener.onPlaybackModeChanged(isShuffleEnabled, repeatMode)
         }
     }
 
@@ -456,7 +490,22 @@ object PlaybackManager {
             queue.addAll(SpotifySearchEngine.defaultCuratedSongs)
         }
         if (queue.isEmpty()) return
-        queueIndex = (queueIndex + 1) % queue.size
+
+        if (repeatMode == RepeatMode.ONE && currentSong != null) {
+            seekTo(0)
+            playSong(currentSong!!)
+            return
+        }
+
+        if (isShuffleEnabled && queue.size > 1) {
+            var nextIndex = queueIndex
+            while (nextIndex == queueIndex) {
+                nextIndex = (0 until queue.size).random()
+            }
+            queueIndex = nextIndex
+        } else {
+            queueIndex = (queueIndex + 1) % queue.size
+        }
         playSong(queue[queueIndex])
     }
 

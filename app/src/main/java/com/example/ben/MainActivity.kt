@@ -493,8 +493,7 @@ class MainActivity : AppCompatActivity(), PlaybackManager.PlaybackListener {
         }
 
         binding.btnLibraryAdd.setOnClickListener {
-            Toast.makeText(this, "Create Playlist: Feature coming soon", Toast.LENGTH_SHORT).show()
-            UbiTelemetryManager.log("hitCreatePlaylist", "User tapped create playlist")
+            showCreatePlaylistDialog()
         }
 
         binding.btnLibrarySearch.setOnClickListener {
@@ -552,6 +551,49 @@ class MainActivity : AppCompatActivity(), PlaybackManager.PlaybackListener {
         }
     }
 
+    private val customPlaylists = mutableListOf<String>()
+
+    private fun showCreatePlaylistDialog() {
+        val context = this
+        val layout = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(48, 24, 48, 24)
+        }
+
+        val tvTitle = TextView(context).apply {
+            text = "Give your playlist a name"
+            setTextColor(ContextCompat.getColor(context, R.color.spotify_white))
+            textSize = 16f
+            setTypeface(null, android.graphics.Typeface.BOLD)
+            setPadding(0, 0, 0, 16)
+        }
+
+        val etName = EditText(context).apply {
+            hint = "My Playlist #${customPlaylists.size + 1}"
+            setHintTextColor(ContextCompat.getColor(context, R.color.spotify_subdued))
+            setTextColor(ContextCompat.getColor(context, R.color.spotify_white))
+            background = ContextCompat.getDrawable(context, R.drawable.bg_edittext)
+            setPadding(24, 20, 24, 20)
+        }
+
+        layout.addView(tvTitle)
+        layout.addView(etName)
+
+        val dialog = androidx.appcompat.app.AlertDialog.Builder(context, androidx.appcompat.R.style.Theme_AppCompat_Dialog_Alert)
+            .setTitle("New Playlist")
+            .setView(layout)
+            .setPositiveButton("Create") { _, _ ->
+                val name = etName.text.toString().trim().ifBlank { "My Playlist #${customPlaylists.size + 1}" }
+                customPlaylists.add(name)
+                Toast.makeText(context, "Playlist \"$name\" created!", Toast.LENGTH_SHORT).show()
+                UbiTelemetryManager.log("hitCreatePlaylistSuccess", name)
+            }
+            .setNegativeButton("Cancel", null)
+            .create()
+
+        dialog.show()
+    }
+
     private fun updateLikedSongsCount() {
         val count = SpotifySearchEngine.defaultCuratedSongs.count { it.isLiked }
         binding.tvLikedSongsCount.text = "Playlist • $count ${if (count == 1) "song" else "songs"}"
@@ -572,6 +614,11 @@ class MainActivity : AppCompatActivity(), PlaybackManager.PlaybackListener {
             binding.playerSeekBar.max = initialSong.getDurationMs()
             binding.playerSeekBar.progress = 0
             ImageLoader.load(initialSong.artworkUrl, binding.imgPlayerThumb)
+        }
+
+        // Tap bottom player bar to expand full Now Playing screen
+        binding.bottomPlayerBar.setOnClickListener {
+            NowPlayingBottomSheet.newInstance().show(supportFragmentManager, NowPlayingBottomSheet.TAG)
         }
 
         binding.btnPlayerPlayPause.setOnClickListener {
