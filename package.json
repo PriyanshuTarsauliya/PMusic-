@@ -5,7 +5,9 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node server.js"
+    "cluster": "node server.js --cluster",
+    "dev": "node server.js",
+    "test": "node test.js"
   },
   "keywords": [
     "spotify",

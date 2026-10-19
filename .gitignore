@@ -3,6 +3,10 @@ node_modules/
 Thumbs.db
 *.log
 .env
+.env.*
+*.pem
+*.key
+credentials.json
 .gradle/
 .idea/
 .vscode/
@@ -11,3 +15,7 @@ build/
 app/
 local.properties
 spotify-search/
+data/refresh_tokens.json
+data/stream_leases.json
+*.tmp
+

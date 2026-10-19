@@ -1,1 +1,298 @@
-{}
+{
+  "testuser_mvf1ve9g": {
+    "username": "testuser_mvf1ve9g",
+    "passwordHash": "90ce83f05272fbbaeaffb1955fee58ba6703a2643408599dc98135a691da23a1c0882dd734904b3cfb3907b98ada8ed94fd1434532275325d9930398bc9c8f44",
+    "salt": "1fba0a0b6e3587708176979c29fbd52f",
+    "createdAt": 1792401999723,
+    "library": [
+      {
+        "id": "track-1",
+        "name": "Blinding Lights",
+        "artist": "The Weeknd",
+        "album": "After Hours",
+        "albumYear": "2020",
+        "duration": 200,
+        "durationFormatted": "3:20",
+        "artwork": "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=400&auto=format&fit=crop&q=80",
+        "previewUrl": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview116/v4/bc/c7/24/bcc724f1-6a2c-7357-61c3-caef795610ea/mzaf_10793132646399080649.plus.aac.p.m4a",
+        "youtubeId": "fHI8X4OXluQ"
+      },
+      {
+        "id": "track-2",
+        "name": "Starboy",
+        "artist": "The Weeknd ft. Daft Punk",
+        "album": "Starboy",
+        "albumYear": "2016",
+        "duration": 230,
+        "durationFormatted": "3:50",
+        "artwork": "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=400&auto=format&fit=crop&q=80",
+        "previewUrl": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview125/v4/4a/12/35/4a12356c-03d1-dcf3-27dc-473d062828b1/mzaf_15939221295964893883.plus.aac.p.m4a",
+        "youtubeId": "34Na4j8AVgA"
+      },
+      {
+        "id": "track-3",
+        "name": "Cruel Summer",
+        "artist": "Taylor Swift",
+        "album": "Lover",
+        "albumYear": "2019",
+        "duration": 178,
+        "durationFormatted": "2:58",
+        "artwork": "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=400&auto=format&fit=crop&q=80",
+        "previewUrl": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview116/v4/64/0e/b5/640eb51b-5136-dcf0-fdf8-dc9bb1a14138/mzaf_9043750860580979455.plus.aac.p.m4a",
+        "youtubeId": "ic8j13piAhQ"
+      }
+    ],
+    "likedTracks": [
+      "track-1",
+      "track-2",
+      "track-3"
+    ]
+  },
+  "multi_0_mvf1vjec": {
+    "username": "multi_0_mvf1vjec",
+    "passwordHash": "9d9371b8e0fc8e40cd9d0068d7b39a4eb7bde2219524e03069454141a73a5b554fc82a8a855ebb3a5b645e1990fce205b6d62fcb41203f5503f90d3ba4482c8b",
+    "salt": "c34bd6ff5acc00fcdc6b38db3d1a9a80",
+    "createdAt": 1792402006373,
+    "library": [
+      {
+        "id": "track-1",
+        "name": "Blinding Lights",
+        "artist": "The Weeknd",
+        "album": "After Hours",
+        "albumYear": "2020",
+        "duration": 200,
+        "durationFormatted": "3:20",
+        "artwork": "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=400&auto=format&fit=crop&q=80",
+        "previewUrl": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview116/v4/bc/c7/24/bcc724f1-6a2c-7357-61c3-caef795610ea/mzaf_10793132646399080649.plus.aac.p.m4a",
+        "youtubeId": "fHI8X4OXluQ"
+      },
+      {
+        "id": "track-2",
+        "name": "Starboy",
+        "artist": "The Weeknd ft. Daft Punk",
+        "album": "Starboy",
+        "albumYear": "2016",
+        "duration": 230,
+        "durationFormatted": "3:50",
+        "artwork": "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=400&auto=format&fit=crop&q=80",
+        "previewUrl": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview125/v4/4a/12/35/4a12356c-03d1-dcf3-27dc-473d062828b1/mzaf_15939221295964893883.plus.aac.p.m4a",
+        "youtubeId": "34Na4j8AVgA"
+      },
+      {
+        "id": "track-3",
+        "name": "Cruel Summer",
+        "artist": "Taylor Swift",
+        "album": "Lover",
+        "albumYear": "2019",
+        "duration": 178,
+        "durationFormatted": "2:58",
+        "artwork": "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=400&auto=format&fit=crop&q=80",
+        "previewUrl": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview116/v4/64/0e/b5/640eb51b-5136-dcf0-fdf8-dc9bb1a14138/mzaf_9043750860580979455.plus.aac.p.m4a",
+        "youtubeId": "ic8j13piAhQ"
+      }
+    ],
+    "likedTracks": [
+      "track-1",
+      "track-2",
+      "track-3"
+    ]
+  },
+  "multi_1_mvf1vjhr": {
+    "username": "multi_1_mvf1vjhr",
+    "passwordHash": "7c9cbbcc64ee729822be929b7e193937553c80fa7d7ea82007966dbd006af302461bb368fa72a857ccaa3b431fb2297cdd0946ec13819b2222ea914529c6ea60",
+    "salt": "59ce9eabfa90671a01551f0cfa935d4b",
+    "createdAt": 1792402006456,
+    "library": [
+      {
+        "id": "track-1",
+        "name": "Blinding Lights",
+        "artist": "The Weeknd",
+        "album": "After Hours",
+        "albumYear": "2020",
+        "duration": 200,
+        "durationFormatted": "3:20",
+        "artwork": "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=400&auto=format&fit=crop&q=80",
+        "previewUrl": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview116/v4/bc/c7/24/bcc724f1-6a2c-7357-61c3-caef795610ea/mzaf_10793132646399080649.plus.aac.p.m4a",
+        "youtubeId": "fHI8X4OXluQ"
+      },
+      {
+        "id": "track-2",
+        "name": "Starboy",
+        "artist": "The Weeknd ft. Daft Punk",
+        "album": "Starboy",
+        "albumYear": "2016",
+        "duration": 230,
+        "durationFormatted": "3:50",
+        "artwork": "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=400&auto=format&fit=crop&q=80",
+        "previewUrl": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview125/v4/4a/12/35/4a12356c-03d1-dcf3-27dc-473d062828b1/mzaf_15939221295964893883.plus.aac.p.m4a",
+        "youtubeId": "34Na4j8AVgA"
+      },
+      {
+        "id": "track-3",
+        "name": "Cruel Summer",
+        "artist": "Taylor Swift",
+        "album": "Lover",
+        "albumYear": "2019",
+        "duration": 178,
+        "durationFormatted": "2:58",
+        "artwork": "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=400&auto=format&fit=crop&q=80",
+        "previewUrl": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview116/v4/64/0e/b5/640eb51b-5136-dcf0-fdf8-dc9bb1a14138/mzaf_9043750860580979455.plus.aac.p.m4a",
+        "youtubeId": "ic8j13piAhQ"
+      }
+    ],
+    "likedTracks": [
+      "track-1",
+      "track-2",
+      "track-3"
+    ]
+  },
+  "multi_2_mvf1vjjw": {
+    "username": "multi_2_mvf1vjjw",
+    "passwordHash": "3f91f74b7c4d133aaaaf2405a11badd71d70764f890f6fdd19bd1445b3385f6dd41da9178ba56faf7236ac4e72a851e73b1e570f561a75223397adbe5f224e85",
+    "salt": "1d515219de832409fb18847d978f64c0",
+    "createdAt": 1792402006546,
+    "library": [
+      {
+        "id": "track-1",
+        "name": "Blinding Lights",
+        "artist": "The Weeknd",
+        "album": "After Hours",
+        "albumYear": "2020",
+        "duration": 200,
+        "durationFormatted": "3:20",
+        "artwork": "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=400&auto=format&fit=crop&q=80",
+        "previewUrl": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview116/v4/bc/c7/24/bcc724f1-6a2c-7357-61c3-caef795610ea/mzaf_10793132646399080649.plus.aac.p.m4a",
+        "youtubeId": "fHI8X4OXluQ"
+      },
+      {
+        "id": "track-2",
+        "name": "Starboy",
+        "artist": "The Weeknd ft. Daft Punk",
+        "album": "Starboy",
+        "albumYear": "2016",
+        "duration": 230,
+        "durationFormatted": "3:50",
+        "artwork": "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=400&auto=format&fit=crop&q=80",
+        "previewUrl": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview125/v4/4a/12/35/4a12356c-03d1-dcf3-27dc-473d062828b1/mzaf_15939221295964893883.plus.aac.p.m4a",
+        "youtubeId": "34Na4j8AVgA"
+      },
+      {
+        "id": "track-3",
+        "name": "Cruel Summer",
+        "artist": "Taylor Swift",
+        "album": "Lover",
+        "albumYear": "2019",
+        "duration": 178,
+        "durationFormatted": "2:58",
+        "artwork": "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=400&auto=format&fit=crop&q=80",
+        "previewUrl": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview116/v4/64/0e/b5/640eb51b-5136-dcf0-fdf8-dc9bb1a14138/mzaf_9043750860580979455.plus.aac.p.m4a",
+        "youtubeId": "ic8j13piAhQ"
+      }
+    ],
+    "likedTracks": [
+      "track-1",
+      "track-2",
+      "track-3"
+    ]
+  },
+  "ben_fan_99": {
+    "username": "ben_fan_99",
+    "passwordHash": "13c4a451729f79ee7a41f6cb9548e1cb48c63875715ab0ac67854bdcfb1e6c5df12bebdd026feb89d2b74a5b107582cf0419c4bdebb4ce25c3a24163859536be",
+    "salt": "99195c3a34a7feacb5202942a27905ed",
+    "createdAt": 1792402111072,
+    "library": [
+      {
+        "id": "track-1",
+        "name": "Blinding Lights",
+        "artist": "The Weeknd",
+        "album": "After Hours",
+        "albumYear": "2020",
+        "duration": 200,
+        "durationFormatted": "3:20",
+        "artwork": "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=400&auto=format&fit=crop&q=80",
+        "previewUrl": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview116/v4/bc/c7/24/bcc724f1-6a2c-7357-61c3-caef795610ea/mzaf_10793132646399080649.plus.aac.p.m4a",
+        "youtubeId": "fHI8X4OXluQ"
+      },
+      {
+        "id": "track-2",
+        "name": "Starboy",
+        "artist": "The Weeknd ft. Daft Punk",
+        "album": "Starboy",
+        "albumYear": "2016",
+        "duration": 230,
+        "durationFormatted": "3:50",
+        "artwork": "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=400&auto=format&fit=crop&q=80",
+        "previewUrl": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview125/v4/4a/12/35/4a12356c-03d1-dcf3-27dc-473d062828b1/mzaf_15939221295964893883.plus.aac.p.m4a",
+        "youtubeId": "34Na4j8AVgA"
+      },
+      {
+        "id": "track-3",
+        "name": "Cruel Summer",
+        "artist": "Taylor Swift",
+        "album": "Lover",
+        "albumYear": "2019",
+        "duration": 178,
+        "durationFormatted": "2:58",
+        "artwork": "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=400&auto=format&fit=crop&q=80",
+        "previewUrl": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview116/v4/64/0e/b5/640eb51b-5136-dcf0-fdf8-dc9bb1a14138/mzaf_9043750860580979455.plus.aac.p.m4a",
+        "youtubeId": "ic8j13piAhQ"
+      }
+    ],
+    "likedTracks": [
+      "track-1",
+      "track-2",
+      "track-3"
+    ],
+    "updatedAt": 1792402111146
+  },
+  "scale_user_1": {
+    "username": "scale_user_1",
+    "passwordHash": "6454d03265e37dbdad013d2aeee3e79bb68aba928025b8073306ef1175509eee5d9779af9695dc633baaf5cfd89f98a09fd6297dca7977e739e71cc3ae26d0fb",
+    "salt": "223906673fa313aa9cc9e80a6320a31f",
+    "createdAt": 1792403686945,
+    "library": [
+      {
+        "id": "track-1",
+        "name": "Blinding Lights",
+        "artist": "The Weeknd",
+        "album": "After Hours",
+        "albumYear": "2020",
+        "duration": 200,
+        "durationFormatted": "3:20",
+        "artwork": "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=400&auto=format&fit=crop&q=80",
+        "previewUrl": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview116/v4/bc/c7/24/bcc724f1-6a2c-7357-61c3-caef795610ea/mzaf_10793132646399080649.plus.aac.p.m4a",
+        "youtubeId": "fHI8X4OXluQ"
+      },
+      {
+        "id": "track-2",
+        "name": "Starboy",
+        "artist": "The Weeknd ft. Daft Punk",
+        "album": "Starboy",
+        "albumYear": "2016",
+        "duration": 230,
+        "durationFormatted": "3:50",
+        "artwork": "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=400&auto=format&fit=crop&q=80",
+        "previewUrl": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview125/v4/4a/12/35/4a12356c-03d1-dcf3-27dc-473d062828b1/mzaf_15939221295964893883.plus.aac.p.m4a",
+        "youtubeId": "34Na4j8AVgA"
+      },
+      {
+        "id": "track-3",
+        "name": "Cruel Summer",
+        "artist": "Taylor Swift",
+        "album": "Lover",
+        "albumYear": "2019",
+        "duration": 178,
+        "durationFormatted": "2:58",
+        "artwork": "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=400&auto=format&fit=crop&q=80",
+        "previewUrl": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview116/v4/64/0e/b5/640eb51b-5136-dcf0-fdf8-dc9bb1a14138/mzaf_9043750860580979455.plus.aac.p.m4a",
+        "youtubeId": "ic8j13piAhQ"
+      }
+    ],
+    "likedTracks": [
+      "track-1",
+      "track-2",
+      "track-3"
+    ],
+    "updatedAt": 1792404267718
+  }
+}

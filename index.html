@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="preload" href="styles.css" as="style">
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=12">
   <!-- YouTube IFrame API for Real Full-Length Song Playback (loaded asynchronously to eliminate render blocking) -->
   <script src="https://www.youtube.com/iframe_api" async></script>
 </head>
@@ -41,6 +41,10 @@
           <li class="sidebar-nav-item active" id="nav-btn-search">
             <svg class="sidebar-nav-icon" viewBox="0 0 24 24"><path d="M10.533 1.278.434 11.377a1.5 1.5 0 0 0 0 2.122l10.1 10.1a1.5 1.5 0 0 0 2.121 0l10.1-10.1a1.5 1.5 0 0 0 0-2.122L12.654 1.278a1.5 1.5 0 0 0-2.121 0zM12 4.106l8.979 8.979L12 22.064l-8.979-8.979L12 4.106zM15.353 11a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0z"/></svg>
             <span>Search</span>
+          </li>
+          <li class="sidebar-nav-item" id="nav-btn-playlists" title="View All Spotify Playlists">
+            <svg class="sidebar-nav-icon" viewBox="0 0 24 24"><path d="M15 6H3v2h12V6zm0 4H3v2h12v-2zM3 16h8v-2H3v2zM17 6v8.18c-.31-.11-.65-.18-1-.18-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3V8h3V6h-5z"/></svg>
+            <span>Playlists</span>
           </li>
         </ul>
       </div>
@@ -131,6 +135,10 @@
             <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-7 12h-2v-2h2v2zm0-4h-2V6h2v4z"/></svg>
             <span>Feedback</span>
           </button>
+          <button class="feedback-trigger-btn" id="btn-header-security-dashboard" title="View Multi-Core Cluster &amp; Security Architecture" style="background:rgba(29,185,84,0.12); border-color:rgba(29,185,84,0.4); color:#1ed760;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/></svg>
+            <span>🛡️ Cluster &amp; Security</span>
+          </button>
           <button class="chat-import-trigger-btn" id="btn-header-open-chat" title="Chat Box: Import & Save Songs to Library">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/></svg>
             <span>💬 Chat Importer</span>
@@ -211,6 +219,23 @@
             </div>
             <div class="songs-tracklist-table" id="featured-songs-list">
               <!-- Dynamically populated with all curated hit songs -->
+            </div>
+          </div>
+
+          <!-- Spotify Playlists Shelf on Home -->
+          <div class="shelf-section" id="home-playlists-section" style="margin-top: 24px; margin-bottom: 36px;">
+            <div class="section-heading-row">
+              <div style="display:flex; align-items:center;">
+                <h2 class="section-heading">Spotify Playlists</h2>
+                <button class="play-all-pill-btn" id="btn-play-all-home-playlists" title="Play All Songs From All Playlists">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                  <span>Play All Playlists</span>
+                </button>
+              </div>
+              <span class="section-see-all-link" id="btn-see-all-home-playlists" style="cursor:pointer;">Show all</span>
+            </div>
+            <div class="shelf-cards-grid" id="home-playlists-grid">
+              <!-- Dynamically populated with all Spotify playlists -->
             </div>
           </div>
 
@@ -369,10 +394,16 @@
         <button class="player-ctrl-btn" id="btn-toggle-pip" title="Toggle Mini Video Player">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M19 7h-8v6h8V7zm2-4H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16.01H3V4.99h18v14.02z"/></svg>
         </button>
-        <button class="player-ctrl-btn" id="btn-toggle-queue" title="Up Next / Play Queue">
+        <button class="player-ctrl-btn" id="btn-toggle-lyrics" title="Lyrics (L)" aria-label="Toggle Lyrics">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2c1.1 0 2 .9 2 2v6c0 1.1-.9 2-2 2s-2-.9-2-2V4c0-1.1.9-2 2-2zm4.3 6c0 2.37-1.93 4.3-4.3 4.3S7.7 10.37 7.7 8H6c0 3.03 2.25 5.54 5.17 5.92V17h-2.17v2h6v-2h-2.17v-3.08c2.92-.38 5.17-2.89 5.17-5.92h-1.7z"/></svg>
+        </button>
+        <button class="player-ctrl-btn" id="btn-toggle-queue" title="Up Next / Play Queue (Q)">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M15 6H3v2h12V6zm0 4H3v2h12v-2zM3 16h8v-2H3v2zM17 6v8.18c-.31-.11-.65-.18-1-.18-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3V8h3V6h-5z"/></svg>
         </button>
-        <button class="player-ctrl-btn" id="btn-mute" aria-label="Mute/Unmute">
+        <button class="player-ctrl-btn" id="btn-toggle-fullscreen" title="Full Screen (F)" aria-label="Toggle Full Screen">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
+        </button>
+        <button class="player-ctrl-btn" id="btn-mute" aria-label="Mute/Unmute (M)">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
         </button>
         <div class="volume-bar-wrapper">
@@ -700,9 +731,166 @@ Or write: 'Hey add Shape of You, Perfect, and Faded to my library'"></textarea>
       </div>
     </div>
 
+    <!-- REAL-TIME KARAOKE & SYNCED LYRICS MODAL OVERLAY -->
+    <div class="lyrics-modal-overlay" id="lyrics-modal-overlay" style="display:none;" aria-modal="true" role="dialog" aria-label="Song Lyrics">
+      <div class="lyrics-modal-card">
+        <div class="lyrics-modal-header">
+          <div class="lyrics-track-info">
+            <img id="lyrics-artwork" class="lyrics-track-art" src="https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=120&auto=format&fit=crop&q=80" alt="Track Artwork">
+            <div class="lyrics-title-group">
+              <div class="lyrics-song-title" id="lyrics-song-title">Song Title</div>
+              <div class="lyrics-song-artist" id="lyrics-song-artist">Artist Name</div>
+            </div>
+            <span class="lyrics-badge" id="lyrics-type-badge">SYNCED</span>
+          </div>
+          <div class="lyrics-header-actions">
+            <button class="lyrics-action-btn" id="btn-copy-lyrics" title="Copy Lyrics to Clipboard">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+              <span>Copy</span>
+            </button>
+            <button class="chat-modal-close-btn" id="btn-close-lyrics-modal" aria-label="Close lyrics">&times;</button>
+          </div>
+        </div>
+        <div class="lyrics-content-scroll" id="lyrics-content-scroll">
+          <div class="lyrics-loading" id="lyrics-loading" style="display:none;">
+            <div class="lyrics-spinner"></div>
+            <p>Searching for synchronized lyrics...</p>
+          </div>
+          <div class="lyrics-empty" id="lyrics-empty" style="display:none;">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="var(--spotify-subdued)"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+            <p id="lyrics-empty-message">No lyrics found for this song.</p>
+          </div>
+          <div class="lyrics-lines-container" id="lyrics-lines-container">
+            <!-- Dynamically populated karaoke / synchronized lyrics -->
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MULTI-CORE CLUSTER & SECURITY STATUS DASHBOARD MODAL -->
+    <div class="security-modal-overlay" id="security-modal-overlay" style="display:none;" aria-modal="true" role="dialog" aria-label="Security &amp; Cluster Dashboard">
+      <div class="security-modal-card">
+        <div class="security-modal-header">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <div style="width:36px; height:36px; border-radius:8px; background:rgba(29,185,84,0.2); display:flex; align-items:center; justify-content:center; color:#1ed760;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/></svg>
+            </div>
+            <div>
+              <h2 style="margin:0; font-size:1.15rem; font-weight:700; color:#fff;">Cluster &amp; Security Console</h2>
+              <p style="margin:0; font-size:0.75rem; color:var(--spotify-subdued);">Live 1M User Scalable Architecture &amp; Bot Defense Telemetry</p>
+            </div>
+          </div>
+          <button class="chat-modal-close-btn" id="btn-close-security-modal" aria-label="Close security modal">&times;</button>
+        </div>
+
+        <div class="security-modal-body">
+          <div class="security-grid">
+            <!-- 1. Load Balancer Card -->
+            <div class="security-status-card">
+              <div class="sec-card-header">
+                <span class="sec-card-title">⚡ Multi-Core Load Balancer</span>
+                <span class="sec-pill green" id="sec-cluster-badge">ONLINE</span>
+              </div>
+              <div class="sec-stat-row">
+                <span class="sec-label">Algorithm</span>
+                <span class="sec-val" id="sec-balancer-algo">SCHED_RR (Round-Robin)</span>
+              </div>
+              <div class="sec-stat-row">
+                <span class="sec-label">Active Worker</span>
+                <span class="sec-val" id="sec-worker-info">Worker #-- (PID: --)</span>
+              </div>
+              <div class="sec-stat-row">
+                <span class="sec-label">Available CPUs</span>
+                <span class="sec-val" id="sec-cpu-info">-- Cores</span>
+              </div>
+              <div class="sec-stat-row">
+                <span class="sec-label">Client IP</span>
+                <span class="sec-val" id="sec-client-ip">--</span>
+              </div>
+            </div>
+
+            <!-- 2. Bot Defense & 3-Step Handshake -->
+            <div class="security-status-card">
+              <div class="sec-card-header">
+                <span class="sec-card-title">🛡️ 3-Step Anti-Bot Handshake</span>
+                <span class="sec-pill green">ACTIVE</span>
+              </div>
+              <div class="sec-stat-row">
+                <span class="sec-label">Handshake Protocol</span>
+                <span class="sec-val">Challenge &rarr; PoW &rarr; Rotating JWT</span>
+              </div>
+              <div class="sec-stat-row">
+                <span class="sec-label">Proof of Work (mPoW)</span>
+                <span class="sec-val">SHA-256 (Web Crypto API)</span>
+              </div>
+              <div class="sec-stat-row">
+                <span class="sec-label">Client PoW Latency</span>
+                <span class="sec-val" id="sec-pow-latency">Not tested (Example: ~1-5 ms)</span>
+              </div>
+              <div class="sec-stat-row">
+                <span class="sec-label">Current Risk Score</span>
+                <span class="sec-val" id="sec-risk-score">Not evaluated (Example: 0 / 100)</span>
+              </div>
+            </div>
+
+            <!-- 3. Audio Stream Lease Engine -->
+            <div class="security-status-card">
+              <div class="sec-card-header">
+                <span class="sec-card-title">🎵 Single Active Audio Lease</span>
+                <span class="sec-pill blue" id="sec-lease-badge">IDLE</span>
+              </div>
+              <div class="sec-stat-row">
+                <span class="sec-label">Current Leased Device</span>
+                <span class="sec-val" id="sec-lease-device">None (Idle)</span>
+              </div>
+              <div class="sec-stat-row">
+                <span class="sec-label">Heartbeat Interval</span>
+                <span class="sec-val">10 seconds (25s TTL)</span>
+              </div>
+              <div class="sec-stat-row">
+                <span class="sec-label">Concurrent Streams</span>
+                <span class="sec-val">Max 1 (Spotify Standard)</span>
+              </div>
+              <div style="margin-top:12px;">
+                <button class="sec-action-btn" id="btn-simulate-device-conflict">Simulate 2nd Device Playback</button>
+              </div>
+            </div>
+
+            <!-- 4. Token Security & RTR -->
+            <div class="security-status-card">
+              <div class="sec-card-header">
+                <span class="sec-card-title">🔑 Token Lifecycle &amp; RTR</span>
+                <span class="sec-pill purple">HARDENED</span>
+              </div>
+              <div class="sec-stat-row">
+                <span class="sec-label">Access Token Lifespan</span>
+                <span class="sec-val">10 Minutes (Short-lived)</span>
+              </div>
+              <div class="sec-stat-row">
+                <span class="sec-label">Refresh Token Rotation</span>
+                <span class="sec-val">Enabled (Family Revocation)</span>
+              </div>
+              <div class="sec-stat-row">
+                <span class="sec-label">Reuse Detection</span>
+                <span class="sec-val">Breach Alarm Automatic Revoke</span>
+              </div>
+              <div class="sec-stat-row">
+                <span class="sec-label">Cookie Protection</span>
+                <span class="sec-val">HttpOnly + SameSite=Lax</span>
+              </div>
+            </div>
+          </div>
+
+          <div style="margin-top:20px; display:flex; gap:12px; justify-content:flex-end;">
+            <button class="sec-action-btn" id="btn-refresh-cluster-telemetry" style="background:#1ed760; color:#000; font-weight:700;">Refresh Telemetry</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
   </div>
 
   <audio id="audio-engine" preload="none"></audio>
-  <script src="app.js" defer></script>
+  <script src="app.js?v=12" defer></script>
 </body>
 </html>

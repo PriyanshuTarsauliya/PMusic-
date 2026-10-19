@@ -3678,3 +3678,408 @@ html, body {
   justify-content: center;
   line-height: 1;
 }
+
+/* ==========================================================================
+   REAL-TIME KARAOKE & SYNCHRONIZED LYRICS MODAL
+   ========================================================================== */
+
+.lyrics-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 10, 10, 0.88);
+  backdrop-filter: blur(28px) saturate(180%);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  z-index: 100000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  animation: fadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.lyrics-modal-card {
+  background: linear-gradient(180deg, #18201a 0%, #121212 40%, #0d0d0d 100%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 32px 80px rgba(0, 0, 0, 0.85), 0 0 100px rgba(29, 185, 84, 0.15);
+  border-radius: 20px;
+  width: 100%;
+  max-width: 820px;
+  height: 85vh;
+  max-height: 820px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
+
+.lyrics-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 28px;
+  background: rgba(18, 18, 18, 0.65);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+  z-index: 10;
+}
+
+.lyrics-track-info {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+}
+
+.lyrics-track-art {
+  width: 52px;
+  height: 52px;
+  border-radius: 8px;
+  object-fit: cover;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  flex-shrink: 0;
+}
+
+.lyrics-title-group {
+  min-width: 0;
+}
+
+.lyrics-song-title {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--spotify-white);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: -0.01em;
+}
+
+.lyrics-song-artist {
+  font-size: 0.88rem;
+  color: var(--spotify-subdued);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lyrics-badge {
+  font-size: 0.65rem;
+  font-weight: 800;
+  color: #1ed760;
+  background: rgba(29, 185, 84, 0.16);
+  border: 1px solid rgba(29, 185, 84, 0.35);
+  padding: 3px 8px;
+  border-radius: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-left: 8px;
+  flex-shrink: 0;
+}
+
+.lyrics-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.lyrics-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--spotify-white);
+  padding: 8px 14px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.lyrics-action-btn:hover {
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.25);
+  transform: translateY(-1px);
+}
+
+.lyrics-content-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 40px 36px 80px 36px;
+  scroll-behavior: smooth;
+  position: relative;
+}
+
+.lyrics-content-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+
+.lyrics-content-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.lyrics-content-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+}
+
+.lyrics-content-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.lyrics-lines-container {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.lyrics-line {
+  font-size: 1.65rem;
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.32);
+  cursor: pointer;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  padding: 8px 16px;
+  border-radius: 12px;
+  user-select: none;
+  line-height: 1.35;
+  letter-spacing: -0.02em;
+}
+
+.lyrics-line:hover {
+  color: rgba(255, 255, 255, 0.75);
+  background: rgba(255, 255, 255, 0.04);
+  transform: translateX(4px);
+}
+
+.lyrics-line.active {
+  color: #ffffff !important;
+  font-size: 1.85rem;
+  background: linear-gradient(90deg, rgba(29, 185, 84, 0.18) 0%, rgba(29, 185, 84, 0.02) 100%);
+  border-left: 4px solid var(--spotify-green);
+  text-shadow: 0 0 24px rgba(29, 185, 84, 0.45);
+  transform: scale(1.02) translateX(6px);
+  padding-left: 20px;
+}
+
+.lyrics-line.passed {
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.lyrics-loading,
+.lyrics-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 320px;
+  text-align: center;
+  color: var(--spotify-subdued);
+  gap: 16px;
+}
+
+.lyrics-spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid rgba(255, 255, 255, 0.1);
+  border-top-color: var(--spotify-green);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.player-ctrl-btn.active-tool {
+  color: var(--spotify-green) !important;
+  text-shadow: 0 0 12px rgba(29, 185, 84, 0.6);
+}
+
+@media (max-width: 768px) {
+  .lyrics-modal-overlay {
+    padding: 0;
+    align-items: flex-end;
+  }
+
+  .lyrics-modal-card {
+    height: 94vh;
+    max-height: 94vh;
+    border-radius: 20px 20px 0 0;
+  }
+
+  .lyrics-modal-header {
+    padding: 16px 20px;
+  }
+
+  .lyrics-content-scroll {
+    padding: 24px 20px 60px 20px;
+  }
+
+  .lyrics-line {
+    font-size: 1.35rem;
+  }
+
+  .lyrics-line.active {
+    font-size: 1.5rem;
+  }
+}
+
+/* ==========================================================================
+   CLUSTER & SECURITY CONSOLE MODAL
+   ========================================================================== */
+
+.security-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.78);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.security-modal-card {
+  width: 100%;
+  max-width: 820px;
+  background: #121212;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.85);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: modalScaleIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.security-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 24px;
+  background: rgba(255, 255, 255, 0.03);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.security-modal-body {
+  padding: 24px;
+  max-height: 75vh;
+  overflow-y: auto;
+}
+
+.security-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+@media (max-width: 680px) {
+  .security-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.security-status-card {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.security-status-card:hover {
+  border-color: rgba(255, 255, 255, 0.16);
+  transform: translateY(-2px);
+}
+
+.sec-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.sec-card-title {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.sec-pill {
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  padding: 3px 8px;
+  border-radius: 9999px;
+  text-transform: uppercase;
+}
+
+.sec-pill.green {
+  background: rgba(29, 185, 84, 0.18);
+  color: #1ed760;
+  border: 1px solid rgba(29, 185, 84, 0.4);
+}
+
+.sec-pill.blue {
+  background: rgba(30, 144, 255, 0.18);
+  color: #1e90ff;
+  border: 1px solid rgba(30, 144, 255, 0.4);
+}
+
+.sec-pill.purple {
+  background: rgba(147, 112, 219, 0.18);
+  color: #ba55d3;
+  border: 1px solid rgba(147, 112, 219, 0.4);
+}
+
+.sec-stat-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 0.8rem;
+  padding: 4px 0;
+  border-bottom: 1px dashed rgba(255, 255, 255, 0.06);
+}
+
+.sec-label {
+  color: var(--spotify-subdued);
+  white-space: nowrap;
+}
+
+.sec-val {
+  color: #fff;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.sec-action-btn {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 20px;
+  padding: 8px 16px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.sec-action-btn:hover {
+  background: #1ed760;
+  color: #000;
+  border-color: #1ed760;
+  transform: scale(1.02);
+}
+
+

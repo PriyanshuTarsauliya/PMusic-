@@ -1,5 +1,5 @@
 // PMusic Android PWA & Desktop Service Worker
-const CACHE_NAME = 'pmusic-cache-v2';
+const CACHE_NAME = 'pmusic-cache-v12';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -40,22 +40,33 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Stale-While-Revalidate: Return cached asset instantly (0ms) while revalidating in background
+  // Network-First for HTML/JS/CSS to ensure instant updates while preserving offline capability
   event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      const fetchPromise = fetch(event.request)
-        .then((networkResponse) => {
-          if (networkResponse && networkResponse.status === 200) {
-            const responseToCache = networkResponse.clone();
-            caches.open(CACHE_NAME).then((cache) => {
-              cache.put(event.request, responseToCache);
-            });
+    fetch(event.request)
+      .then((networkResponse) => {
+        if (networkResponse && networkResponse.status === 200) {
+          const responseToCache = networkResponse.clone();
+          event.waitUntil(
+            caches.open(CACHE_NAME)
+              .then((cache) => cache.put(event.request, responseToCache))
+              .catch((err) => {
+                console.warn('[SW] Cache write failed:', err);
+              })
+          );
+        }
+        return networkResponse;
+      })
+      .catch(() => {
+        return caches.match(event.request).then((cachedResponse) => {
+          if (cachedResponse) {
+            return cachedResponse;
           }
-          return networkResponse;
-        })
-        .catch(() => cachedResponse);
-
-      return cachedResponse || fetchPromise;
-    })
+          return new Response('Network error and no cached version available', {
+            status: 503,
+            statusText: 'Service Unavailable',
+            headers: { 'Content-Type': 'text/plain' }
+          });
+        });
+      })
   );
 });
