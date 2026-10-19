@@ -6,7 +6,7 @@ services:
     plan: free
     region: ohio
     buildCommand: npm install
-    startCommand: node server.js
+    startCommand: node server.js --cluster
     envVars:
       - key: NODE_ENV
         value: production

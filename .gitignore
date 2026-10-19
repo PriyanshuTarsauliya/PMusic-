@@ -11,3 +11,9 @@ captures/
 .externalNativeBuild/
 .cxx/
 spotify-search/
+.env
+.env.*
+*.pem
+*.key
+credentials.json
+

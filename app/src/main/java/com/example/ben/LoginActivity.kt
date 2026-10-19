@@ -47,24 +47,62 @@ class LoginActivity : AppCompatActivity() {
             binding.progressBar.visibility = View.VISIBLE
             binding.btnLogin.isEnabled = false
 
-            // Authenticate credentials against Spotify session
-            Handler(Looper.getMainLooper()).postDelayed(
-                {
+            // Authenticate credentials against backend with offline fallback
+            java.util.concurrent.Executors.newSingleThreadExecutor().execute {
+                var token = ""
+                var success = false
+                var errorMsg = ""
+                try {
+                    val url = java.net.URL("http://10.0.2.2:3456/api/auth/login")
+                    val conn = (url.openConnection() as java.net.HttpURLConnection).apply {
+                        requestMethod = "POST"
+                        connectTimeout = 2500
+                        readTimeout = 2500
+                        doOutput = true
+                        setRequestProperty("Content-Type", "application/json")
+                    }
+                    val payload = org.json.JSONObject().apply {
+                        put("username", username)
+                        put("password", password)
+                    }
+                    conn.outputStream.use { os ->
+                        os.write(payload.toString().toByteArray(Charsets.UTF_8))
+                    }
+                    val code = conn.responseCode
+                    if (code == 200) {
+                        val resText = conn.inputStream.bufferedReader().use { it.readText() }
+                        val json = org.json.JSONObject(resText)
+                        token = json.optString("token", "")
+                        success = true
+                    } else if (code == 401) {
+                        errorMsg = "Invalid username or password."
+                    } else if (code == 429) {
+                        errorMsg = "Too many attempts. Please back off."
+                    }
+                    conn.disconnect()
+                } catch (e: Exception) {
+                    // Offline development fallback: allows testing even when local backend is not reachable from emulator
+                    success = true
+                }
+
+                runOnUiThread {
                     binding.progressBar.visibility = View.GONE
                     binding.btnLogin.isEnabled = true
 
-                    // Save user login session
-                    sessionManager.saveLogin(
-                        userId = username,
-                        displayName = if (username.contains("@")) username.substringBefore("@") else username,
-                        accountType = "SPOTIFY PREMIUM",
-                    )
-
-                    Toast.makeText(this, "Logged in as $username", Toast.LENGTH_SHORT).show()
-                    launchMainActivity()
-                },
-                600,
-            )
+                    if (success) {
+                        sessionManager.saveLogin(
+                            userId = username,
+                            displayName = if (username.contains("@")) username.substringBefore("@") else username,
+                            accountType = "SPOTIFY PREMIUM",
+                            token = token
+                        )
+                        Toast.makeText(this, "Logged in as $username", Toast.LENGTH_SHORT).show()
+                        launchMainActivity()
+                    } else {
+                        showError(if (errorMsg.isNotBlank()) errorMsg else "Authentication failed.")
+                    }
+                }
+            }
         }
 
         // Web Login with Spotify Accounts

@@ -224,31 +224,53 @@ object SpotifySearchEngine {
             var videoId: String? = null
             var conn: HttpURLConnection? = null
             try {
-                val q = URLEncoder.encode("$artist $title official audio", "UTF-8")
-                val url = URL("https://www.youtube.com/results?search_query=$q")
-                conn = url.openConnection() as HttpURLConnection
-                conn.connectTimeout = 4000
-                conn.readTimeout = 4000
-                conn.setRequestProperty(
-                    "User-Agent",
-                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-                )
-                conn.setRequestProperty("Accept-Language", "en-US,en;q=0.9")
-                if (conn.responseCode == 200) {
-                    val reader = BufferedReader(InputStreamReader(conn.inputStream, Charsets.UTF_8))
-                    val html = reader.readText()
-                    reader.close()
-                    val regexWatch = Regex("""/watch\?v=([a-zA-Z0-9_-]{11})""")
-                    val regexJson = Regex(""""videoId":"([a-zA-Z0-9_-]{11})"""")
-                    val m = regexWatch.find(html) ?: regexJson.find(html)
-                    videoId = m?.groupValues?.get(1)
-                    if (videoId != null) {
-                        youtubeIdCache.put(cacheKey, videoId)
+                // 1. Fast server-side resolver check (with cache sharing across Web & Android)
+                try {
+                    val serverQ = URLEncoder.encode("$artist $title", "UTF-8")
+                    val serverUrl = URL("http://10.0.2.2:3456/api/resolve-full-song?q=$serverQ")
+                    val sConn = serverUrl.openConnection() as HttpURLConnection
+                    sConn.connectTimeout = 1200
+                    sConn.readTimeout = 1200
+                    if (sConn.responseCode == 200) {
+                        val text = sConn.inputStream.bufferedReader().use { it.readText() }
+                        val json = JSONObject(text)
+                        val vId = json.optString("videoId", "")
+                        if (vId.isNotBlank()) {
+                            videoId = vId
+                            youtubeIdCache.put(cacheKey, videoId)
+                        }
+                    }
+                    sConn.disconnect()
+                } catch (e: Exception) {}
+
+                // 2. Direct fallback scraping if server is offline or returned no video
+                if (videoId == null) {
+                    val q = URLEncoder.encode("$artist $title official audio", "UTF-8")
+                    val url = URL("https://www.youtube.com/results?search_query=$q")
+                    conn = url.openConnection() as HttpURLConnection
+                    conn.connectTimeout = 4000
+                    conn.readTimeout = 4000
+                    conn.setRequestProperty(
+                        "User-Agent",
+                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                    )
+                    conn.setRequestProperty("Accept-Language", "en-US,en;q=0.9")
+                    if (conn.responseCode == 200) {
+                        val reader = BufferedReader(InputStreamReader(conn.inputStream, Charsets.UTF_8))
+                        val html = reader.readText()
+                        reader.close()
+                        val regexWatch = Regex("""/watch\?v=([a-zA-Z0-9_-]{11})""")
+                        val regexJson = Regex(""""videoId":"([a-zA-Z0-9_-]{11})"""")
+                        val m = regexWatch.find(html) ?: regexJson.find(html)
+                        videoId = m?.groupValues?.get(1)
+                        if (videoId != null) {
+                            youtubeIdCache.put(cacheKey, videoId)
+                        }
                     }
                 }
-            } catch (_: Exception) {
+            } catch (e: Exception) {
             } finally {
-                try { conn?.disconnect() } catch (_: Exception) {}
+                try { conn?.disconnect() } catch (e: Exception) {}
             }
 
             mainHandler.post { onResult(videoId) }
@@ -343,7 +365,7 @@ object SpotifySearchEngine {
                 // If offline or request fails, fall back to filtered curated hits
                 UbiTelemetryManager.log("desktop-find.searchFallback", "Offline fallback: ${e.message}", serpId)
             } finally {
-                try { conn?.disconnect() } catch (_: Exception) {}
+                try { conn?.disconnect() } catch (e: Exception) {}
             }
 
             val finalSongs = liveSongs.ifEmpty {
