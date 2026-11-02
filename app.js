@@ -409,7 +409,11 @@ const State = {
     playlists: []
   },
   overviewShowAllSongs: false,
-  currentPlayingContext: null
+  currentPlayingContext: null,
+  userExplicitlyPaused: false,
+  isLockedBackground: false,
+  handoffFromYoutube: false,
+  audioSessionPrimed: false
 };
 
 function generateId(prefix) {
@@ -2230,26 +2234,95 @@ function updateAndroidMediaSession() {
   if (!('mediaSession' in navigator) || !State.currentTrack) return;
   try {
     const track = State.currentTrack;
+    const art = track.artwork || track.image || '';
     navigator.mediaSession.metadata = new MediaMetadata({
       title: track.name || track.title || 'Unknown Title',
       artist: track.artist || 'PMusic Artist',
       album: track.album || 'PMusic - Spotify',
       artwork: [
-        { src: track.artwork || track.image || '', sizes: '96x96', type: 'image/jpeg' },
-        { src: track.artwork || track.image || '', sizes: '192x192', type: 'image/jpeg' },
-        { src: track.artwork || track.image || '', sizes: '512x512', type: 'image/jpeg' }
+        { src: art, sizes: '96x96', type: 'image/jpeg' },
+        { src: art, sizes: '128x128', type: 'image/jpeg' },
+        { src: art, sizes: '192x192', type: 'image/jpeg' },
+        { src: art, sizes: '256x256', type: 'image/jpeg' },
+        { src: art, sizes: '512x512', type: 'image/jpeg' }
       ]
     });
 
     navigator.mediaSession.playbackState = State.isPlaying ? 'playing' : 'paused';
 
-    navigator.mediaSession.setActionHandler('play', () => togglePlayPause());
-    navigator.mediaSession.setActionHandler('pause', () => togglePlayPause());
-    navigator.mediaSession.setActionHandler('previoustrack', () => playPrevTrack());
-    navigator.mediaSession.setActionHandler('nexttrack', () => playNextTrack());
+    navigator.mediaSession.setActionHandler('play', () => {
+      State.userExplicitlyPaused = false;
+      togglePlayPause();
+    });
+    navigator.mediaSession.setActionHandler('pause', () => {
+      State.userExplicitlyPaused = true;
+      togglePlayPause();
+    });
+    navigator.mediaSession.setActionHandler('previoustrack', () => {
+      State.userExplicitlyPaused = false;
+      playPrevTrack({ backgroundAudioOnly: document.hidden });
+    });
+    navigator.mediaSession.setActionHandler('nexttrack', () => {
+      State.userExplicitlyPaused = false;
+      playNextTrack({ backgroundAudioOnly: document.hidden });
+    });
+
+    try {
+      navigator.mediaSession.setActionHandler('seekto', (details) => {
+        if (details.seekTime !== undefined && !isNaN(details.seekTime)) {
+          seekPlaybackToSeconds(details.seekTime);
+          syncMediaSessionPosition();
+        }
+      });
+    } catch (_) {}
+
+    try {
+      navigator.mediaSession.setActionHandler('seekbackward', (details) => {
+        const offset = details.seekOffset || 10;
+        const prog = getPlaybackProgress();
+        if (prog) {
+          seekPlaybackToSeconds(Math.max(0, prog.current - offset));
+          syncMediaSessionPosition();
+        }
+      });
+    } catch (_) {}
+
+    try {
+      navigator.mediaSession.setActionHandler('seekforward', (details) => {
+        const offset = details.seekOffset || 10;
+        const prog = getPlaybackProgress();
+        if (prog) {
+          seekPlaybackToSeconds(Math.min(prog.duration, prog.current + offset));
+          syncMediaSessionPosition();
+        }
+      });
+    } catch (_) {}
+
+    try {
+      navigator.mediaSession.setActionHandler('stop', () => {
+        State.userExplicitlyPaused = true;
+        togglePlayPause();
+      });
+    } catch (_) {}
+
+    syncMediaSessionPosition();
   } catch (e) {
     // Graceful fallback if MediaSession not permitted
   }
+}
+
+function syncMediaSessionPosition() {
+  if (!('mediaSession' in navigator) || !('setPositionState' in navigator.mediaSession)) return;
+  try {
+    const prog = getPlaybackProgress();
+    if (prog && prog.duration > 0 && !isNaN(prog.current)) {
+      navigator.mediaSession.setPositionState({
+        duration: Math.max(1, prog.duration),
+        playbackRate: 1.0,
+        position: Math.min(Math.max(0, prog.current), prog.duration)
+      });
+    }
+  } catch (_) {}
 }
 
 function renderQueueList() {
