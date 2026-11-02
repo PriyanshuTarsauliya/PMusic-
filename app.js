@@ -26,6 +26,8 @@ const BROWSE_CATEGORIES = [
   { id: 'chill', title: 'Chill', color: '#477d95', image: 'https://images.unsplash.com/photo-1518495973542-4542c06a5843?w=200&auto=format&fit=crop&q=80' }
 ];
 
+const SILENT_AUDIO_URI = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
+
 const CURATED_TRACKS = [
   {
     id: 'track-1',
@@ -1542,6 +1544,120 @@ window.onYouTubeIframeAPIReady = function() {
 
 if (window.YT && window.YT.Player) {
   try { window.onYouTubeIframeAPIReady(); } catch (_) {}
+}
+
+
+// ==========================================================================
+// MOBILE BROWSER LOCK SCREEN AUDIO ENGINE & CONTINUOUS PLAYBACK SUPPORT
+// ==========================================================================
+let screenWakeLock = null;
+let progressThrottleCounter = 0;
+
+async function requestWakeLock() {
+  if ('wakeLock' in navigator && document.visibilityState === 'visible' && State.isPlaying) {
+    try {
+      if (!screenWakeLock) {
+        screenWakeLock = await navigator.wakeLock.request('screen');
+        screenWakeLock.addEventListener('release', () => {
+          screenWakeLock = null;
+        });
+      }
+    } catch (_) {}
+  }
+}
+
+function releaseWakeLock() {
+  if (screenWakeLock) {
+    try { screenWakeLock.release(); } catch (_) {}
+    screenWakeLock = null;
+  }
+}
+
+function primeMobileAudioSession() {
+  if (State.audioSessionPrimed) return;
+  State.audioSessionPrimed = true;
+
+  const keepAlive = document.getElementById('bg-keepalive-engine');
+  if (keepAlive) {
+    if (!keepAlive.src) keepAlive.src = SILENT_AUDIO_URI;
+    keepAlive.volume = 0.001;
+    keepAlive.play().then(() => {
+      console.log('[Mobile Lock Screen] Background audio keepalive primed.');
+    }).catch(() => {
+      State.audioSessionPrimed = false;
+    });
+  }
+
+  const audio = document.getElementById('audio-engine');
+  if (audio && !audio.src) {
+    try { audio.load(); } catch (_) {}
+  }
+}
+
+function handleMobileLockScreenSuspension() {
+  if (!State.isPlaying || State.userExplicitlyPaused) return;
+  const audio = document.getElementById('audio-engine');
+  if (!audio) return;
+
+  const track = State.currentTrack;
+  if (!track) return;
+
+  let curTime = 0;
+  try {
+    if (ytPlayer && typeof ytPlayer.getCurrentTime === 'function') {
+      curTime = ytPlayer.getCurrentTime() || 0;
+    }
+  } catch (_) {}
+
+  console.log(`[Mobile Lock Screen] Handing off track "${track.name}" at ${curTime.toFixed(1)}s to background audio engine.`);
+
+  if (track.previewUrl) {
+    State.activeEngine = 'audio';
+    State.handoffFromYoutube = true;
+    audio.src = track.previewUrl;
+
+    const dur = (audio.duration && !isNaN(audio.duration) && audio.duration > 0)
+      ? audio.duration
+      : (track.duration || 30);
+    const seekOffset = dur > 0 ? (curTime % dur) : 0;
+
+    audio.currentTime = seekOffset;
+    audio.play().then(() => {
+      State.isPlaying = true;
+      updatePlayerUI();
+      updateAndroidMediaSession();
+      startYtProgress();
+    }).catch(err => {
+      console.warn('[Mobile Lock Screen] Audio handoff play error:', err);
+      primeMobileAudioSession();
+    });
+  } else {
+    primeMobileAudioSession();
+  }
+}
+
+function playTrackViaAudioEngine(track) {
+  if (!track) return;
+  State.currentTrack = track;
+  State.isPlaying = true;
+  State.activeEngine = 'audio';
+  startStreamLeaseHeartbeat();
+
+  const audio = document.getElementById('audio-engine');
+  if (audio && track.previewUrl) {
+    audio.src = track.previewUrl;
+    audio.currentTime = 0;
+    audio.play().then(() => {
+      State.isPlaying = true;
+      updatePlayerUI();
+      updateAndroidMediaSession();
+      startYtProgress();
+    }).catch(err => {
+      console.warn('[LockScreen] Background audio play error:', err);
+    });
+  }
+  updatePlayerUI();
+  updateAndroidMediaSession();
 }
 
 function onYtReady() {

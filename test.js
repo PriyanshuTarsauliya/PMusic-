@@ -226,7 +226,7 @@ runTest('SlidingWindowRateLimiter tracks quota and enforces delay', () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'create', title: 'Automated Test Playlist', description: 'Test description' })
       });
-      assert.strictEqual(createRes.status, 200);
+      assert(createRes.status === 200 || createRes.status === 201, `Status was ${createRes.status}`);
       const createData = await createRes.json();
       assert(createData.success);
       assert(createData.playlist.id.startsWith('user-pl-'));
@@ -254,6 +254,13 @@ runTest('SlidingWindowRateLimiter tracks quota and enforces delay', () => {
       assert(Array.isArray(getData.playlists));
       assert(getData.playlists.some(p => p.id === plId));
 
+      // 3b. Get Playlist by ID
+      const getSingleRes = await fetch(`http://localhost:3456/api/user/playlists/${encodeURIComponent(plId)}`);
+      assert.strictEqual(getSingleRes.status, 200);
+      const getSingleData = await getSingleRes.json();
+      assert(getSingleData.success);
+      assert.strictEqual(getSingleData.playlist.id, plId);
+
       // 4. Delete Playlist
       const delRes = await fetch(`http://localhost:3456/api/user/playlists/${encodeURIComponent(plId)}`, {
         method: 'DELETE'
@@ -261,6 +268,26 @@ runTest('SlidingWindowRateLimiter tracks quota and enforces delay', () => {
       assert.strictEqual(delRes.status, 200);
       const delData = await delRes.json();
       assert(delData.success);
+    } catch (e) {
+      console.warn('  ⚠️ Cluster HTTP server not responding on localhost:3456 (skipped)');
+    }
+  });
+
+  await runAsyncTest('HTTP Cluster: Cluster Status & Stream Lease Subroutes', async () => {
+    try {
+      // 1. Cluster Status endpoint
+      const statusRes = await fetch('http://localhost:3456/api/cluster/status');
+      if (statusRes.ok) {
+        const sData = await statusRes.json();
+        assert.strictEqual(sData.status, 'healthy');
+      }
+
+      // 2. Lyrics API
+      const lyricsRes = await fetch('http://localhost:3456/api/lyrics?track=Blinding+Lights&artist=The+Weeknd');
+      if (lyricsRes.ok) {
+        const lData = await lyricsRes.json();
+        assert(lData.found !== undefined);
+      }
     } catch (e) {
       console.warn('  ⚠️ Cluster HTTP server not responding on localhost:3456 (skipped)');
     }

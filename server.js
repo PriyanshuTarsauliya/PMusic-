@@ -1315,7 +1315,13 @@ const server = http.createServer(async (req, res) => {
   }
 
   // Spotify-Style Single Active Stream Lease Enforcement
-  if (pathname === '/api/v1/stream/lease' && (req.method === 'POST' || req.method === 'GET')) {
+  if (
+    (pathname === '/api/v1/stream/lease' ||
+     pathname === '/api/v1/stream/lease/claim' ||
+     pathname === '/api/v1/stream/lease/heartbeat' ||
+     pathname === '/api/v1/stream/lease/release') &&
+    (req.method === 'POST' || req.method === 'GET')
+  ) {
     const token = extractToken(req, parsedUrl);
     const user = getSessionUser(token);
 
@@ -1326,7 +1332,6 @@ const server = http.createServer(async (req, res) => {
     }
 
     const userId = user.username ? user.username.toLowerCase() : user.id;
-
     const leases = getStreamLeasesDb();
 
     if (req.method === 'GET') {
@@ -1341,13 +1346,49 @@ const server = http.createServer(async (req, res) => {
       const { deviceId = 'web_player', deviceName = 'Web Browser' } = payload;
       const now = Date.now();
       const LEASE_TTL_MS = 25000;
-
       const currentLease = leases[userId];
 
-      // If another device is actively playing and has not timed out
+      // Heartbeat action
+      if (pathname === '/api/v1/stream/lease/heartbeat' || payload.action === 'heartbeat') {
+        if (!currentLease || currentLease.deviceId !== deviceId || currentLease.expiresAt < now) {
+          if (currentLease && currentLease.deviceId !== deviceId && currentLease.expiresAt > now) {
+            res.writeHead(409, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+              success: false,
+              error: 'LEASE_CONFLICT_REVOKED',
+              status: 'displaced',
+              message: `Audio playback paused. You are listening on ${currentLease.deviceName}.`,
+              playingOn: currentLease.deviceName
+            }));
+            return;
+          }
+        }
+        if (currentLease && currentLease.deviceId === deviceId) {
+          currentLease.expiresAt = now + LEASE_TTL_MS;
+          saveStreamLeasesDb(leases);
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: true, leaseValid: true, expiresAt: currentLease.expiresAt }));
+          return;
+        }
+      }
+
+      // Release action
+      if (pathname === '/api/v1/stream/lease/release' || payload.action === 'release') {
+        if (currentLease && currentLease.deviceId === deviceId) {
+          delete leases[userId];
+          saveStreamLeasesDb(leases);
+        }
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true }));
+        return;
+      }
+
+      // Claim / Renew lease
       if (currentLease && currentLease.deviceId !== deviceId && currentLease.expiresAt > now) {
         res.writeHead(409, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({
+          success: false,
+          error: 'LEASE_CONFLICT_REVOKED',
           status: 'displaced',
           message: `Audio playback paused. You are listening on ${currentLease.deviceName}.`,
           playingOn: currentLease.deviceName
@@ -1355,7 +1396,6 @@ const server = http.createServer(async (req, res) => {
         return;
       }
 
-      // Grant / Renew lease
       leases[userId] = {
         deviceId,
         deviceName,
@@ -1364,9 +1404,13 @@ const server = http.createServer(async (req, res) => {
       };
       saveStreamLeasesDb(leases);
 
+      const leaseToken = 'ls_' + crypto.randomBytes(12).toString('hex');
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({
+        success: true,
         status: 'granted',
+        leaseToken,
+        activeDevice: deviceName,
         leaseDurationSec: 25,
         heartbeatIntervalSec: 10
       }));
@@ -1469,7 +1513,7 @@ const server = http.createServer(async (req, res) => {
   }
 
   // API Route: Load Balancer Health & Distribution Telemetry
-  if (pathname === '/api/load-balancer' || pathname === '/api/cluster') {
+  if (pathname === '/api/load-balancer' || pathname === '/api/cluster' || pathname === '/api/cluster/status') {
     const clientIp = getClientIp(req);
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({
@@ -1640,6 +1684,20 @@ const server = http.createServer(async (req, res) => {
       res.end(JSON.stringify({ error: e.message }));
       return;
     }
+  }
+
+  if (pathname.startsWith('/api/user/playlists/') && req.method === 'GET') {
+    const id = pathname.replace('/api/user/playlists/', '');
+    const playlists = getSavedPlaylists();
+    const pl = playlists.find(p => p.id === id);
+    if (!pl) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Playlist not found' }));
+      return;
+    }
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: true, playlist: pl }));
+    return;
   }
 
   if (pathname.startsWith('/api/user/playlists/') && req.method === 'DELETE') {
