@@ -399,4 +399,69 @@ object SpotifySearchEngine {
         val secs = totalSecs % 60
         return String.format(Locale.US, "%d:%02d", mins, secs)
     }
+
+    private val lyricsCache = object : LruCache<String, Pair<String?, String?>>(50) {}
+
+    fun fetchLyrics(track: String, artist: String, onResult: (syncedLyrics: String?, plainLyrics: String?) -> Unit) {
+        val cacheKey = (artist + " - " + track).trim().lowercase(Locale.ROOT)
+        val cached = lyricsCache.get(cacheKey)
+        if (cached != null) {
+            mainHandler.post { onResult(cached.first, cached.second) }
+            return
+        }
+
+        executor.execute {
+            var synced: String? = null
+            var plain: String? = null
+
+            // 1. Try local cluster backend first
+            try {
+                val encTrack = URLEncoder.encode(track, "UTF-8")
+                val encArtist = URLEncoder.encode(artist, "UTF-8")
+                val url = URL("http://10.0.2.2:3456/api/lyrics?track=$encTrack&artist=$encArtist")
+                val conn = (url.openConnection() as HttpURLConnection).apply {
+                    connectTimeout = 2500
+                    readTimeout = 2500
+                }
+                if (conn.responseCode == 200) {
+                    val body = conn.inputStream.bufferedReader().use { it.readText() }
+                    val json = JSONObject(body)
+                    if (json.optBoolean("found", false)) {
+                        synced = json.optString("syncedLyrics", "").takeIf { it.isNotBlank() }
+                        plain = json.optString("plainLyrics", "").takeIf { it.isNotBlank() }
+                    }
+                }
+                conn.disconnect()
+            } catch (_: Exception) {}
+
+            // 2. Fallback to direct LRCLIB API if server unreachable or not found
+            if (synced.isNullOrBlank() && plain.isNullOrBlank()) {
+                try {
+                    val encTrack = URLEncoder.encode(track, "UTF-8")
+                    val encArtist = URLEncoder.encode(artist, "UTF-8")
+                    val url = URL("https://lrclib.net/api/get?track_name=$encTrack&artist_name=$encArtist")
+                    val conn = (url.openConnection() as HttpURLConnection).apply {
+                        connectTimeout = 3000
+                        readTimeout = 3000
+                        setRequestProperty("User-Agent", "PMusic-Android/1.0")
+                    }
+                    if (conn.responseCode == 200) {
+                        val body = conn.inputStream.bufferedReader().use { it.readText() }
+                        val json = JSONObject(body)
+                        synced = json.optString("syncedLyrics", "").takeIf { it.isNotBlank() }
+                        plain = json.optString("plainLyrics", "").takeIf { it.isNotBlank() }
+                    }
+                    conn.disconnect()
+                } catch (_: Exception) {}
+            }
+
+            if (synced != null || plain != null) {
+                lyricsCache.put(cacheKey, Pair(synced, plain))
+            }
+
+            mainHandler.post {
+                onResult(synced, plain)
+            }
+        }
+    }
 }

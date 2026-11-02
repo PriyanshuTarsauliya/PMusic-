@@ -73,9 +73,10 @@
                 android:layout_width="36dp"
                 android:layout_height="36dp"
                 android:background="?attr/selectableItemBackgroundBorderless"
-                android:contentDescription="More"
-                android:src="@drawable/ic_search"
-                android:visibility="invisible" />
+                android:contentDescription="Sleep Timer"
+                android:src="@drawable/ic_timer"
+                android:visibility="visible"
+                app:tint="@color/spotify_white" />
         </LinearLayout>
 
         <!-- Big Album Artwork -->
@@ -130,6 +131,16 @@
                     android:textSize="14sp"
                     tools:text="The Weeknd" />
             </LinearLayout>
+
+            <ImageButton
+                android:id="@+id/btnNowPlayingQueue"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:layout_marginEnd="4dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Up Next / Play Queue"
+                android:src="@drawable/ic_queue_music"
+                app:tint="@color/spotify_white" />
 
             <ImageButton
                 android:id="@+id/btnNowPlayingLike"

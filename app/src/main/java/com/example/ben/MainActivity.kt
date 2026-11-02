@@ -5,6 +5,8 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.view.View
+import android.view.ViewGroup
+import android.widget.ImageView
 import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
@@ -46,6 +48,11 @@ class MainActivity : AppCompatActivity(), PlaybackManager.PlaybackListener {
         setContentView(binding.root)
 
         PlaybackManager.attachWebView(binding.webViewPlayer)
+        PlaylistManager.init(this)
+        PlaybackManager.authToken = sessionManager.getAuthToken()
+        PlaybackManager.onStreamDisplaced = { playingOn ->
+            Toast.makeText(this, "Audio paused: playback active on $playingOn", Toast.LENGTH_LONG).show()
+        }
 
         setupUserHeader()
         setupBottomNavigation()
@@ -323,6 +330,9 @@ class MainActivity : AppCompatActivity(), PlaybackManager.PlaybackListener {
                 songAdapter.notifyDataSetChanged()
                 @Suppress("NotifyDataSetChanged")
                 homeSongAdapter.notifyDataSetChanged()
+            },
+            onMoreClick = { song ->
+                showTrackOptionsDialog(song)
             }
         )
 
@@ -458,6 +468,9 @@ class MainActivity : AppCompatActivity(), PlaybackManager.PlaybackListener {
                     @Suppress("NotifyDataSetChanged")
                     homeSongAdapter.notifyDataSetChanged()
                 }
+            },
+            onMoreClick = { song ->
+                showTrackOptionsDialog(song)
             }
         )
 
@@ -483,6 +496,10 @@ class MainActivity : AppCompatActivity(), PlaybackManager.PlaybackListener {
     // ==========================================================
     private fun setupLibraryView() {
         updateLikedSongsCount()
+        PlaylistManager.addListener {
+            renderCustomPlaylists()
+        }
+        renderCustomPlaylists()
 
         val curated = SpotifySearchEngine.defaultCuratedSongs
         if (curated.isNotEmpty()) {
@@ -551,9 +568,184 @@ class MainActivity : AppCompatActivity(), PlaybackManager.PlaybackListener {
         }
     }
 
-    private val customPlaylists = mutableListOf<String>()
+    private fun renderCustomPlaylists() {
+        binding.layoutCustomPlaylists.removeAllViews()
+        val playlists = PlaylistManager.getPlaylists()
 
-    private fun showCreatePlaylistDialog() {
+        if (playlists.isEmpty()) {
+            binding.tvCustomPlaylistsHeader.visibility = View.GONE
+            binding.layoutCustomPlaylists.visibility = View.GONE
+            return
+        }
+
+        binding.tvCustomPlaylistsHeader.visibility = View.VISIBLE
+        binding.layoutCustomPlaylists.visibility = View.VISIBLE
+
+        val context = this
+        playlists.forEach { pl ->
+            val row = LinearLayout(context).apply {
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    (68 * resources.displayMetrics.density).toInt()
+                )
+                orientation = LinearLayout.HORIZONTAL
+                gravity = android.view.Gravity.CENTER_VERTICAL
+                val padH = (16 * resources.displayMetrics.density).toInt()
+                setPadding(padH, 0, padH, 0)
+                isClickable = true
+                isFocusable = true
+                setBackgroundResource(android.R.drawable.list_selector_background)
+            }
+
+            val card = androidx.cardview.widget.CardView(context).apply {
+                val size = (48 * resources.displayMetrics.density).toInt()
+                layoutParams = LinearLayout.LayoutParams(size, size)
+                radius = 6 * resources.displayMetrics.density
+                cardElevation = 0f
+            }
+
+            val img = ImageView(context).apply {
+                layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+                scaleType = ImageView.ScaleType.CENTER_CROP
+            }
+            ImageLoader.load(pl.artworkUrl, img)
+            card.addView(img)
+            row.addView(card)
+
+            val textLayout = LinearLayout(context).apply {
+                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
+                    marginStart = (14 * resources.displayMetrics.density).toInt()
+                }
+                orientation = LinearLayout.VERTICAL
+            }
+
+            val tvTitle = TextView(context).apply {
+                text = pl.title
+                setTextColor(ContextCompat.getColor(context, R.color.spotify_white))
+                textSize = 15f
+                setTypeface(null, android.graphics.Typeface.BOLD)
+                maxLines = 1
+                ellipsize = android.text.TextUtils.TruncateAt.END
+            }
+
+            val tvSub = TextView(context).apply {
+                text = "Playlist • ${pl.curator} • ${pl.tracks.size} ${if (pl.tracks.size == 1) "song" else "songs"}"
+                setTextColor(ContextCompat.getColor(context, R.color.spotify_subdued))
+                textSize = 12f
+                maxLines = 1
+                ellipsize = android.text.TextUtils.TruncateAt.END
+            }
+
+            textLayout.addView(tvTitle)
+            textLayout.addView(tvSub)
+            row.addView(textLayout)
+
+            row.setOnClickListener {
+                showPlaylistDetailDialog(pl)
+            }
+
+            binding.layoutCustomPlaylists.addView(row)
+        }
+    }
+
+    private fun showPlaylistDetailDialog(playlist: Playlist) {
+        val context = this
+        val trackNames = if (playlist.tracks.isEmpty()) {
+            arrayOf("No songs yet. Tap 3-dots on any song to add it here!")
+        } else {
+            playlist.tracks.map { "${it.title} - ${it.artist}" }.toTypedArray()
+        }
+
+        val dialog = androidx.appcompat.app.AlertDialog.Builder(context, androidx.appcompat.R.style.Theme_AppCompat_Dialog_Alert)
+            .setTitle(playlist.title)
+            .setMessage("${playlist.description} (${playlist.tracks.size} songs)")
+            .setItems(trackNames) { _, which ->
+                if (playlist.tracks.isNotEmpty() && which in playlist.tracks.indices) {
+                    PlaybackManager.setQueueAndPlay(playlist.tracks, which)
+                    Toast.makeText(context, "Playing ${playlist.tracks[which].title}", Toast.LENGTH_SHORT).show()
+                }
+            }
+            .setPositiveButton(if (playlist.tracks.isNotEmpty()) "▶ Play All" else "Close") { _, _ ->
+                if (playlist.tracks.isNotEmpty()) {
+                    PlaybackManager.setQueueAndPlay(playlist.tracks, 0)
+                    Toast.makeText(context, "Playing playlist ${playlist.title}", Toast.LENGTH_SHORT).show()
+                }
+            }
+            .setNegativeButton("Delete Playlist") { _, _ ->
+                PlaylistManager.deletePlaylist(playlist.id)
+                Toast.makeText(context, "Deleted ${playlist.title}", Toast.LENGTH_SHORT).show()
+            }
+            .create()
+
+        dialog.show()
+    }
+
+    private fun showTrackOptionsDialog(song: Song) {
+        val context = this
+        val likeLabel = if (song.isLiked) "Remove from Liked Songs" else "Save to your Liked Songs"
+        val options = arrayOf(
+            "Add to Playlist",
+            "Add to Queue",
+            "Play Next",
+            likeLabel
+        )
+
+        androidx.appcompat.app.AlertDialog.Builder(context, androidx.appcompat.R.style.Theme_AppCompat_Dialog_Alert)
+            .setTitle("${song.title}\n${song.artist}")
+            .setItems(options) { _, which ->
+                when (which) {
+                    0 -> showAddToPlaylistDialog(song)
+                    1 -> {
+                        PlaybackManager.addToQueue(song)
+                        Toast.makeText(context, "Added \"${song.title}\" to queue", Toast.LENGTH_SHORT).show()
+                    }
+                    2 -> {
+                        PlaybackManager.playNextInQueue(song)
+                        Toast.makeText(context, "\"${song.title}\" will play next", Toast.LENGTH_SHORT).show()
+                    }
+                    3 -> {
+                        song.isLiked = !song.isLiked
+                        Toast.makeText(context, if (song.isLiked) "Saved to Liked Songs" else "Removed from Liked Songs", Toast.LENGTH_SHORT).show()
+                        updateLikedSongsCount()
+                        @Suppress("NotifyDataSetChanged")
+                        songAdapter.notifyDataSetChanged()
+                        if (::homeSongAdapter.isInitialized) {
+                            @Suppress("NotifyDataSetChanged")
+                            homeSongAdapter.notifyDataSetChanged()
+                        }
+                    }
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun showAddToPlaylistDialog(song: Song) {
+        val context = this
+        val playlists = PlaylistManager.getPlaylists()
+        val items = mutableListOf("+ Create New Playlist")
+        items.addAll(playlists.map { "${it.title} (${it.tracks.size} songs)" })
+
+        androidx.appcompat.app.AlertDialog.Builder(context, androidx.appcompat.R.style.Theme_AppCompat_Dialog_Alert)
+            .setTitle("Add to Playlist")
+            .setItems(items.toTypedArray()) { _, which ->
+                if (which == 0) {
+                    showCreatePlaylistDialog(initialSong = song)
+                } else {
+                    val pl = playlists[which - 1]
+                    val added = PlaylistManager.addSongToPlaylist(pl.id, song)
+                    if (added) {
+                        Toast.makeText(context, "Added \"${song.title}\" to ${pl.title}", Toast.LENGTH_SHORT).show()
+                    } else {
+                        Toast.makeText(context, "\"${song.title}\" is already in ${pl.title}", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun showCreatePlaylistDialog(initialSong: Song? = null) {
         val context = this
         val layout = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
@@ -569,7 +761,7 @@ class MainActivity : AppCompatActivity(), PlaybackManager.PlaybackListener {
         }
 
         val etName = EditText(context).apply {
-            hint = "My Playlist #${customPlaylists.size + 1}"
+            hint = "My Playlist #${PlaylistManager.getPlaylists().size + 1}"
             setHintTextColor(ContextCompat.getColor(context, R.color.spotify_subdued))
             setTextColor(ContextCompat.getColor(context, R.color.spotify_white))
             background = ContextCompat.getDrawable(context, R.drawable.bg_edittext)
@@ -583,10 +775,10 @@ class MainActivity : AppCompatActivity(), PlaybackManager.PlaybackListener {
             .setTitle("New Playlist")
             .setView(layout)
             .setPositiveButton("Create") { _, _ ->
-                val name = etName.text.toString().trim().ifBlank { "My Playlist #${customPlaylists.size + 1}" }
-                customPlaylists.add(name)
-                Toast.makeText(context, "Playlist \"$name\" created!", Toast.LENGTH_SHORT).show()
-                UbiTelemetryManager.log("hitCreatePlaylistSuccess", name)
+                val name = etName.text.toString().trim().ifBlank { "My Playlist #${PlaylistManager.getPlaylists().size + 1}" }
+                val newPl = PlaylistManager.createPlaylist(name, "Created by you", initialSong)
+                Toast.makeText(context, "Playlist \"${newPl.title}\" created!", Toast.LENGTH_SHORT).show()
+                UbiTelemetryManager.log("hitCreatePlaylistSuccess", newPl.title)
             }
             .setNegativeButton("Cancel", null)
             .create()

@@ -11,6 +11,11 @@ import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import org.json.JSONObject
+import java.net.HttpURLConnection
+import java.net.URL
+import java.util.UUID
+import java.util.concurrent.Executors
 
 object PlaybackManager {
     private const val TAG = "PlaybackManager"
@@ -26,6 +31,20 @@ object PlaybackManager {
     private var isYtReady: Boolean = false
     private var pendingVideoId: String? = null
     private val handler = Handler(Looper.getMainLooper())
+    private val leaseExecutor = Executors.newSingleThreadExecutor()
+    private val deviceId: String = "android_" + UUID.randomUUID().toString().take(8)
+    private val deviceName: String = "Android Client"
+    var onStreamDisplaced: ((deviceName: String) -> Unit)? = null
+    var authToken: String? = null
+
+    private val leaseHeartbeatRunnable = object : Runnable {
+        override fun run() {
+            if (isPlaying) {
+                heartbeatStreamLease()
+                handler.postDelayed(this, 15000)
+            }
+        }
+    }
 
     private var mediaPlayerStartTimeMs: Long = 0L
     private var mediaPlayerSeekOffsetMs: Long = 0L
@@ -346,6 +365,7 @@ object PlaybackManager {
     }
 
     private fun playViaYouTube(videoId: String, song: Song) {
+        claimStreamLease()
         stopMediaPlayer()
         activeEngine = Engine.YOUTUBE
         isPlaying = true
@@ -364,6 +384,7 @@ object PlaybackManager {
     }
 
     private fun playViaMediaPlayer(song: Song) {
+        claimStreamLease()
         if (song.audioUrl.isBlank()) {
             Log.w(TAG, "Cannot play song with blank audioUrl: ${song.title}")
             isPlaying = false
@@ -428,6 +449,132 @@ object PlaybackManager {
     private fun stopYouTube() {
         webView?.post {
             webView?.evaluateJavascript("stopVideo();", null)
+        }
+    }
+
+    fun pause() {
+        if (isPlaying) {
+            togglePlayPause()
+        }
+    }
+
+    fun addToQueue(song: Song) {
+        queue.add(song)
+        listeners.forEach {
+            it.onSongChanged(currentSong ?: song)
+        }
+    }
+
+    fun playNextInQueue(song: Song) {
+        if (queue.isEmpty()) {
+            queue.add(song)
+            playSong(song)
+            return
+        }
+        val insertIndex = queueIndex + 1
+        if (insertIndex <= queue.size) {
+            queue.add(insertIndex, song)
+        } else {
+            queue.add(song)
+        }
+    }
+
+    fun clearQueue() {
+        queue.clear()
+        queueIndex = 0
+    }
+
+    private fun claimStreamLease() {
+        val token = authToken
+        if (token.isNullOrBlank()) return
+        leaseExecutor.execute {
+            try {
+                val url = URL("http://10.0.2.2:3456/api/v1/stream/lease/claim")
+                val conn = (url.openConnection() as HttpURLConnection).apply {
+                    requestMethod = "POST"
+                    connectTimeout = 2500
+                    readTimeout = 2500
+                    doOutput = true
+                    setRequestProperty("Content-Type", "application/json")
+                    setRequestProperty("Authorization", "Bearer $token")
+                }
+                val payload = JSONObject().apply {
+                    put("deviceId", deviceId)
+                    put("deviceName", deviceName)
+                }
+                conn.outputStream.use { it.write(payload.toString().toByteArray()) }
+                val code = conn.responseCode
+                if (code == 409) {
+                    val res = conn.errorStream?.bufferedReader()?.use { it.readText() } ?: ""
+                    val json = JSONObject(res)
+                    val playingOn = json.optString("playingOn", "another device")
+                    handler.post {
+                        pause()
+                        onStreamDisplaced?.invoke(playingOn)
+                    }
+                }
+                conn.disconnect()
+            } catch (_: Exception) {}
+        }
+        handler.removeCallbacks(leaseHeartbeatRunnable)
+        handler.postDelayed(leaseHeartbeatRunnable, 15000)
+    }
+
+    private fun heartbeatStreamLease() {
+        val token = authToken
+        if (token.isNullOrBlank()) return
+        leaseExecutor.execute {
+            try {
+                val url = URL("http://10.0.2.2:3456/api/v1/stream/lease/heartbeat")
+                val conn = (url.openConnection() as HttpURLConnection).apply {
+                    requestMethod = "POST"
+                    connectTimeout = 2500
+                    readTimeout = 2500
+                    doOutput = true
+                    setRequestProperty("Content-Type", "application/json")
+                    setRequestProperty("Authorization", "Bearer $token")
+                }
+                val payload = JSONObject().apply {
+                    put("deviceId", deviceId)
+                }
+                conn.outputStream.use { it.write(payload.toString().toByteArray()) }
+                val code = conn.responseCode
+                if (code == 409) {
+                    val res = conn.errorStream?.bufferedReader()?.use { it.readText() } ?: ""
+                    val json = JSONObject(res)
+                    val playingOn = json.optString("playingOn", "another device")
+                    handler.post {
+                        pause()
+                        onStreamDisplaced?.invoke(playingOn)
+                    }
+                }
+                conn.disconnect()
+            } catch (_: Exception) {}
+        }
+    }
+
+    private fun releaseStreamLease() {
+        handler.removeCallbacks(leaseHeartbeatRunnable)
+        val token = authToken
+        if (token.isNullOrBlank()) return
+        leaseExecutor.execute {
+            try {
+                val url = URL("http://10.0.2.2:3456/api/v1/stream/lease/release")
+                val conn = (url.openConnection() as HttpURLConnection).apply {
+                    requestMethod = "POST"
+                    connectTimeout = 2000
+                    readTimeout = 2000
+                    doOutput = true
+                    setRequestProperty("Content-Type", "application/json")
+                    setRequestProperty("Authorization", "Bearer $token")
+                }
+                val payload = JSONObject().apply {
+                    put("deviceId", deviceId)
+                }
+                conn.outputStream.use { it.write(payload.toString().toByteArray()) }
+                conn.responseCode
+                conn.disconnect()
+            } catch (_: Exception) {}
         }
     }
 

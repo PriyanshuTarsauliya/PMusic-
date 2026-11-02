@@ -1,10 +1,18 @@
 package com.example.ben
 
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.text.SpannableStringBuilder
+import android.text.Spanned
+import android.text.style.ForegroundColorSpan
+import android.text.style.StyleSpan
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.SeekBar
+import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.core.content.ContextCompat
 import com.example.ben.databinding.DialogNowPlayingBinding
 import com.google.android.material.bottomsheet.BottomSheetBehavior
@@ -17,6 +25,20 @@ class NowPlayingBottomSheet : BottomSheetDialogFragment(), PlaybackManager.Playb
     private val binding get() = _binding!!
     private var isTrackingSeekBar = false
     private var isLyricsExpanded = false
+
+    private val handler = Handler(Looper.getMainLooper())
+
+    // Synced Lyrics Data Structures
+    data class LyricLine(val timeMs: Int, val text: String)
+    private var parsedLyricLines: List<LyricLine> = emptyList()
+    private var currentActiveLyricIndex: Int = -1
+    private var plainLyricsFallback: String? = null
+    private var lyricsSongId: String? = null
+
+    // Sleep Timer Engine
+    private var sleepTimerEndsAt: Long = 0L
+    private var sleepTimerMode: String? = null // "end" or minutes
+    private var sleepTimerRunnable: Runnable? = null
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -76,6 +98,16 @@ class NowPlayingBottomSheet : BottomSheetDialogFragment(), PlaybackManager.Playb
             }
         }
 
+        binding.btnNowPlayingQueue.setOnClickListener {
+            showQueueDialog()
+        }
+
+        // Sleep Timer
+        binding.btnNowPlayingMore.setOnClickListener {
+            showSleepTimerDialog()
+        }
+        updateSleepTimerUi()
+
         binding.nowPlayingSeekBar.setOnSeekBarChangeListener(
             object : SeekBar.OnSeekBarChangeListener {
                 override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
@@ -99,8 +131,11 @@ class NowPlayingBottomSheet : BottomSheetDialogFragment(), PlaybackManager.Playb
 
         binding.btnLyricsExpand.setOnClickListener {
             isLyricsExpanded = !isLyricsExpanded
-            binding.tvLyricsContent.maxLines = if (isLyricsExpanded) 100 else 8
+            binding.tvLyricsContent.maxLines = if (isLyricsExpanded) 300 else 8
             binding.btnLyricsExpand.text = if (isLyricsExpanded) "LESS" else "MORE"
+            if (parsedLyricLines.isNotEmpty() && currentActiveLyricIndex >= 0) {
+                renderSyncedLyrics(currentActiveLyricIndex)
+            }
         }
 
         PlaybackManager.currentSong?.let { onSongChanged(it) }
@@ -121,7 +156,17 @@ class NowPlayingBottomSheet : BottomSheetDialogFragment(), PlaybackManager.Playb
 
         ImageLoader.load(song.artworkUrl, binding.imgNowPlayingArt)
         updateLikeUi(song.isLiked)
-        updateLyrics(song)
+
+        // Check if sleep timer was set to "end of track"
+        if (sleepTimerMode == "end") {
+            sleepTimerMode = null
+            PlaybackManager.pause()
+            updateSleepTimerUi()
+            Toast.makeText(requireContext(), "Sleep timer finished: Playback paused at end of song.", Toast.LENGTH_LONG).show()
+            return
+        }
+
+        loadLyricsForSong(song)
     }
 
     override fun onPlaybackStateChanged(isPlaying: Boolean) {
@@ -136,6 +181,22 @@ class NowPlayingBottomSheet : BottomSheetDialogFragment(), PlaybackManager.Playb
         binding.nowPlayingSeekBar.progress = currentPositionMs
         binding.tvNowPlayingElapsed.text = formatTime(currentPositionMs)
         binding.tvNowPlayingDuration.text = formatTime(totalDurationMs)
+
+        // Update real-time synced lyrics line
+        if (parsedLyricLines.isNotEmpty()) {
+            var activeIdx = -1
+            for (i in parsedLyricLines.indices) {
+                if (currentPositionMs >= parsedLyricLines[i].timeMs) {
+                    activeIdx = i
+                } else {
+                    break
+                }
+            }
+            if (activeIdx != currentActiveLyricIndex && activeIdx >= 0) {
+                currentActiveLyricIndex = activeIdx
+                renderSyncedLyrics(activeIdx)
+            }
+        }
     }
 
     override fun onPlaybackModeChanged(isShuffle: Boolean, repeatMode: PlaybackManager.RepeatMode) {
@@ -143,6 +204,221 @@ class NowPlayingBottomSheet : BottomSheetDialogFragment(), PlaybackManager.Playb
         updateShuffleUi(isShuffle)
         updateRepeatUi(repeatMode)
     }
+
+    // =========================================================================
+    // REAL-TIME SYNCHRONIZED & PLAIN LYRICS ENGINE
+    // =========================================================================
+
+    private fun loadLyricsForSong(song: Song) {
+        lyricsSongId = song.id
+        parsedLyricLines = emptyList()
+        currentActiveLyricIndex = -1
+        plainLyricsFallback = null
+
+        binding.tvLyricsContent.text = "Loading real-time lyrics for \"${song.title}\"..."
+
+        SpotifySearchEngine.fetchLyrics(song.title, song.artist) { syncedLyrics, plainLyrics ->
+            if (_binding == null || lyricsSongId != song.id) return@fetchLyrics
+
+            if (!syncedLyrics.isNullOrBlank()) {
+                val lines = parseLrc(syncedLyrics)
+                if (lines.isNotEmpty()) {
+                    parsedLyricLines = lines
+                    plainLyricsFallback = plainLyrics
+                    renderSyncedLyrics(0)
+                    return@fetchLyrics
+                }
+            }
+
+            if (!plainLyrics.isNullOrBlank()) {
+                binding.tvLyricsContent.text = plainLyrics
+                return@fetchLyrics
+            }
+
+            // Fallback lyrics when lyrics are instrumental or unavailable
+            binding.tvLyricsContent.text = "♪ Instrumental / Lyrics Unavailable ♪\n\nEnjoy \"${song.title}\" by ${song.artist}\nFrom the album \"${song.album}\"\nHigh-Definition Stereo Sound on PMusic."
+        }
+    }
+
+    private fun parseLrc(lrcText: String): List<LyricLine> {
+        val result = mutableListOf<LyricLine>()
+        val lrcRegex = Regex("""\[(\d{2}):(\d{2})\.(\d{2,3})\](.*)""")
+
+        lrcText.lines().forEach { line ->
+            val match = lrcRegex.matchEntire(line.trim())
+            if (match != null) {
+                val min = match.groupValues[1].toIntOrNull() ?: 0
+                val sec = match.groupValues[2].toIntOrNull() ?: 0
+                val msPart = match.groupValues[3]
+                val millis = (min * 60 + sec) * 1000 + (msPart.padEnd(3, '0').take(3).toIntOrNull() ?: 0)
+                val text = match.groupValues[4].trim()
+                if (text.isNotBlank()) {
+                    result.add(LyricLine(millis, text))
+                }
+            }
+        }
+        return result
+    }
+
+    private fun renderSyncedLyrics(activeIndex: Int) {
+        if (_binding == null || parsedLyricLines.isEmpty()) return
+
+        val ssb = SpannableStringBuilder()
+        val greenColor = ContextCompat.getColor(requireContext(), R.color.spotify_green)
+        val whiteColor = ContextCompat.getColor(requireContext(), R.color.spotify_white)
+        val subduedColor = ContextCompat.getColor(requireContext(), R.color.spotify_subdued)
+
+        // Show window of lines around the active index if not expanded
+        val displayLines = if (isLyricsExpanded) {
+            parsedLyricLines
+        } else {
+            val start = maxOf(0, activeIndex - 2)
+            val end = minOf(parsedLyricLines.size, activeIndex + 6)
+            parsedLyricLines.subList(start, end)
+        }
+
+        displayLines.forEach { line ->
+            val isCurrent = (line == parsedLyricLines.getOrNull(activeIndex))
+            val lineStart = ssb.length
+            val prefix = if (isCurrent) "▶ " else "   "
+            ssb.append(prefix).append(line.text).append("\n\n")
+            val lineEnd = ssb.length - 1
+
+            if (isCurrent) {
+                ssb.setSpan(ForegroundColorSpan(greenColor), lineStart, lineEnd, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                ssb.setSpan(StyleSpan(android.graphics.Typeface.BOLD), lineStart, lineEnd, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            } else {
+                ssb.setSpan(ForegroundColorSpan(if (line.timeMs < (parsedLyricLines.getOrNull(activeIndex)?.timeMs ?: 0)) subduedColor else whiteColor), lineStart, lineEnd, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            }
+        }
+
+        binding.tvLyricsContent.text = ssb
+    }
+
+    // =========================================================================
+    // QUEUE VIEWER & MANAGER
+    // =========================================================================
+
+    private fun showQueueDialog() {
+        val queue = PlaybackManager.queue
+        val current = PlaybackManager.currentSong
+
+        if (queue.isEmpty() && current == null) {
+            Toast.makeText(requireContext(), "Playback queue is empty", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val items = mutableListOf<String>()
+        if (current != null) {
+            items.add("▶ Now Playing: ${current.title} - ${current.artist}")
+        }
+        queue.forEachIndexed { index, song ->
+            val prefix = if (song.id == current?.id) "• [Playing] " else "${index + 1}. "
+            items.add("$prefix${song.title} - ${song.artist}")
+        }
+
+        AlertDialog.Builder(requireContext(), androidx.appcompat.R.style.Theme_AppCompat_Dialog_Alert)
+            .setTitle("Play Queue (${queue.size} songs)")
+            .setItems(items.toTypedArray()) { _, which ->
+                val queueTargetIdx = if (current != null) which - 1 else which
+                if (queueTargetIdx in queue.indices) {
+                    PlaybackManager.playSong(queue[queueTargetIdx])
+                    Toast.makeText(requireContext(), "Playing ${queue[queueTargetIdx].title}", Toast.LENGTH_SHORT).show()
+                }
+            }
+            .setPositiveButton("Clear Queue") { _, _ ->
+                PlaybackManager.clearQueue()
+                Toast.makeText(requireContext(), "Queue cleared", Toast.LENGTH_SHORT).show()
+            }
+            .setNegativeButton("Close", null)
+            .show()
+    }
+
+    // =========================================================================
+    // SLEEP TIMER ENGINE
+    // =========================================================================
+
+    private fun showSleepTimerDialog() {
+        val options = arrayOf(
+            "Turn off timer",
+            "5 minutes",
+            "15 minutes",
+            "30 minutes",
+            "45 minutes",
+            "1 hour",
+            "End of this song"
+        )
+
+        AlertDialog.Builder(requireContext(), androidx.appcompat.R.style.Theme_AppCompat_Dialog_Alert)
+            .setTitle("Sleep Timer")
+            .setItems(options) { _, which ->
+                when (which) {
+                    0 -> cancelSleepTimer()
+                    1 -> setSleepTimer(5)
+                    2 -> setSleepTimer(15)
+                    3 -> setSleepTimer(30)
+                    4 -> setSleepTimer(45)
+                    5 -> setSleepTimer(60)
+                    6 -> setSleepTimerEnd()
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun setSleepTimer(minutes: Int) {
+        cancelSleepTimerRunnable()
+        sleepTimerMode = minutes.toString()
+        val durationMs = minutes * 60 * 1000L
+        sleepTimerEndsAt = System.currentTimeMillis() + durationMs
+
+        sleepTimerRunnable = Runnable {
+            if (_binding != null) {
+                PlaybackManager.pause()
+                updateSleepTimerUi()
+                Toast.makeText(requireContext(), "Sleep timer finished: Audio playback paused.", Toast.LENGTH_LONG).show()
+            }
+        }
+        handler.postDelayed(sleepTimerRunnable!!, durationMs)
+
+        updateSleepTimerUi()
+        Toast.makeText(requireContext(), "Sleep timer set: Audio will pause in $minutes minutes", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun setSleepTimerEnd() {
+        cancelSleepTimerRunnable()
+        sleepTimerMode = "end"
+        updateSleepTimerUi()
+        Toast.makeText(requireContext(), "Sleep timer set: Audio will pause at the end of this song", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun cancelSleepTimer() {
+        cancelSleepTimerRunnable()
+        sleepTimerMode = null
+        sleepTimerEndsAt = 0L
+        updateSleepTimerUi()
+        Toast.makeText(requireContext(), "Sleep timer turned off", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun cancelSleepTimerRunnable() {
+        sleepTimerRunnable?.let { handler.removeCallbacks(it) }
+        sleepTimerRunnable = null
+    }
+
+    private fun updateSleepTimerUi() {
+        if (_binding == null) return
+        val isActive = sleepTimerMode != null
+        val color = if (isActive) {
+            ContextCompat.getColor(requireContext(), R.color.spotify_green)
+        } else {
+            ContextCompat.getColor(requireContext(), R.color.spotify_white)
+        }
+        binding.btnNowPlayingMore.setColorFilter(color)
+    }
+
+    // =========================================================================
+    // UI HELPERS
+    // =========================================================================
 
     private fun updateShuffleUi(isShuffle: Boolean) {
         val color = if (isShuffle) {
@@ -185,27 +461,6 @@ class NowPlayingBottomSheet : BottomSheetDialogFragment(), PlaybackManager.Playb
         binding.btnNowPlayingLike.setColorFilter(color)
     }
 
-    private fun updateLyrics(song: Song) {
-        val lyrics = when {
-            song.title.contains("Blinding Lights", true) -> {
-                "Yeah\nI've been tryna call\nI've been on my own for long enough\nMaybe you can show me how to love, maybe\n\nI'm going through withdrawals\nYou don't even have to do too much\nYou can turn me on with just a touch, baby\n\nI look around and Sin City's cold and empty\nNo one's around to judge me\nI can't see clearly when you're gone\n\nI said, ooh, I'm blinded by the lights\nNo, I can't sleep until I feel your touch"
-            }
-            song.title.contains("Starboy", true) -> {
-                "I'm tryna put you in the worst mood, ah\nP1 cleaner than your church shoes, ah\nMilli point two just to hurt you, ah\nAll red Lamb' just to tease you, ah\n\nNone of these toys on lease too, ah\nMade your whole year in a week too, yah\nMain bitch out your league too, ah\nSide bitch out of your league too, ah\n\nLook what you've done\nI'm a motherfuckin' starboy"
-            }
-            song.title.contains("Bad Guy", true) -> {
-                "White shirt now red, my bloody nose\nSleepin', you're on your tippy toes\nCreepin' around like no one knows\nThink you're so criminal\n\nBruises on both my knees for you\nDon't say thank you or please\nI do what I want when I'm wanting to\nMy soul? So cynical\n\nSo you're a tough guy\nLike it really rough guy\nJust can't get enough guy\nChest always so puffed guy\n\nI'm that bad type\nMake your mama sad type\nMake your girlfriend mad tight\nMight seduce your dad type\nI'm the bad guy, duh"
-            }
-            song.title.contains("Levitating", true) -> {
-                "If you wanna run away with me, I know a galaxy\nAnd I can take you for a ride\nI had a premonition that we fell into a rhythm\nWhere the music don't stop for life\n\nGlitter in the sky, glitter in my eyes\nShining just the way I like\nIf you're feeling like you need a little bit of company\nYou met me at the perfect time\n\nYou want me, I want you, baby\nMy sugarboo, I'm levitating"
-            }
-            else -> {
-                "♪ Instrumental Intro ♪\n\n[Verse 1]\nListening to ${song.title} by ${song.artist}\nFrom the album ${song.album}\nExperience pure high-fidelity sound on PMusic\n\n[Chorus]\nTurn the volume up\nFeel every beat and harmony\nSpotify REA audio engine active\n\n[Outro]\n♪ Melodic outro fading ♪"
-            }
-        }
-        binding.tvLyricsContent.text = lyrics
-    }
-
     private fun formatTime(ms: Int): String {
         val totalSec = ms / 1000
         val min = totalSec / 60
@@ -215,6 +470,7 @@ class NowPlayingBottomSheet : BottomSheetDialogFragment(), PlaybackManager.Playb
 
     override fun onDestroyView() {
         super.onDestroyView()
+        cancelSleepTimerRunnable()
         PlaybackManager.removeListener(this)
         _binding = null
     }

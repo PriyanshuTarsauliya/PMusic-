@@ -10,6 +10,7 @@ class SongAdapter(
     private var songs: List<Song>,
     private val onSongClick: (Song, Int) -> Unit,
     private val onLikeClick: (Song) -> Unit,
+    private val onMoreClick: ((Song) -> Unit)? = null,
 ) : RecyclerView.Adapter<SongAdapter.SongViewHolder>() {
 
     init {
@@ -51,10 +52,20 @@ class SongAdapter(
             onLikeClick(song)
         }
 
+        // 3-Dots More Context Menu Button
+        holder.binding.btnSongMore.setOnClickListener {
+            onMoreClick?.invoke(song)
+        }
+
         holder.itemView.setOnClickListener {
             onSongClick(song, position)
             @Suppress("NotifyDataSetChanged")
             notifyDataSetChanged()
+        }
+
+        holder.itemView.setOnLongClickListener {
+            onMoreClick?.invoke(song)
+            true
         }
     }
 

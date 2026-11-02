@@ -6,7 +6,7 @@
     android:layout_height="64dp"
     android:background="?attr/selectableItemBackground"
     android:paddingStart="16dp"
-    android:paddingEnd="16dp">
+    android:paddingEnd="12dp">
 
     <!-- Album Art Thumbnail -->
     <androidx.cardview.widget.CardView
@@ -33,7 +33,7 @@
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginStart="14dp"
-        android:layout_marginEnd="12dp"
+        android:layout_marginEnd="8dp"
         android:orientation="vertical"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toStartOf="@id/btnLike"
@@ -66,9 +66,9 @@
     <!-- Like Button -->
     <ImageButton
         android:id="@+id/btnLike"
-        android:layout_width="36dp"
-        android:layout_height="36dp"
-        android:layout_marginEnd="8dp"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:layout_marginEnd="4dp"
         android:background="?attr/selectableItemBackgroundBorderless"
         android:contentDescription="Like"
         android:src="@drawable/ic_heart"
@@ -81,11 +81,25 @@
         android:id="@+id/tvDuration"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:layout_marginEnd="4dp"
         android:textColor="@color/spotify_subdued"
         android:textSize="13sp"
         app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintEnd_toStartOf="@id/btnSongMore"
         app:layout_constraintTop_toTopOf="parent"
         tools:text="3:20" />
+
+    <!-- More / Context Menu 3-Dots Button -->
+    <ImageButton
+        android:id="@+id/btnSongMore"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="Song Options"
+        android:src="@drawable/ic_more_vert"
+        app:tint="@color/spotify_subdued"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

@@ -43,6 +43,8 @@ class SpotifySessionManager(context: Context) {
 
     fun getAccountType(): String = prefs.getString(KEY_ACCOUNT_TYPE, "SPOTIFY PREMIUM") ?: "SPOTIFY PREMIUM"
 
+    fun getAuthToken(): String = prefs.getString(KEY_AUTH_TOKEN, "") ?: ""
+
     fun logout() {
         prefs.edit { clear() }
     }
