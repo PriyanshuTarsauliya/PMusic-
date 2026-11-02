@@ -10,20 +10,27 @@ const ChallengeService = require('./auth/challengeService');
 const RiskScorer = require('./auth/riskScorer');
 const TokenManager = require('./auth/tokenManager');
 
-const PORT = process.env.PORT || 3456;
-const HOST = '0.0.0.0';
+const PORT = parseInt(process.env.PORT, 10) || 3456;
+const HOST = process.env.HOST || '0.0.0.0';
 const DIR = __dirname;
 
 // ==========================================================================
-// MULTI-CORE LOAD BALANCER (Node.js Cluster SCHED_RR)
+// MULTI-CORE LOAD BALANCER & SINGLE-INSTANCE ORCHESTRATION
 // ==========================================================================
 
-const isClusterMode = process.env.ENABLE_CLUSTER === 'true' ||
-                      process.argv.includes('--cluster') ||
-                      (process.env.NODE_ENV === 'production' && !process.env.NO_CLUSTER);
+const webConcurrency = parseInt(process.env.WEB_CONCURRENCY || '', 10);
+const requestedWorkers = process.env.WORKERS ? parseInt(process.env.WORKERS, 10) : null;
+const numWorkers = requestedWorkers || (Number.isInteger(webConcurrency) && webConcurrency > 0 ? webConcurrency : Math.min(os.cpus().length, 2));
+
+// On cloud hosting (Render, Railway, Heroku) or free-tier single-container environments (WEB_CONCURRENCY=1),
+// run directly as single-process for instantaneous (<20ms) port binding and minimal memory footprint.
+const isClusterMode = !process.env.NO_CLUSTER && (
+  process.env.ENABLE_CLUSTER === 'true' ||
+  process.argv.includes('--cluster')
+) && numWorkers > 1;
 
 if (isClusterMode && cluster.isPrimary) {
-  const numWorkers = process.env.WORKERS ? parseInt(process.env.WORKERS, 10) : Math.min(os.cpus().length, 4);
+  const numWorkers = requestedWorkers || Math.min(os.cpus().length, 2);
   console.log(`=======================================================`);
   console.log(`🚀 PMusic Multi-Core Load Balancer initialized (PID: ${process.pid})`);
   console.log(`⚡ Scheduling Algorithm: Round-Robin (SCHED_RR)`);
@@ -90,7 +97,7 @@ function getStaticFile(filePath) {
     const ext = path.extname(filePath).toLowerCase();
     const mime = MIME[ext] || 'application/octet-stream';
     const isCompressible = ['.html', '.css', '.js', '.json', '.svg'].includes(ext);
-    const gzip = isCompressible ? zlib.gzipSync(content, { level: 9 }) : null;
+    const gzip = isCompressible ? zlib.gzipSync(content, { level: 6 }) : null;
     const etag = '"' + crypto.createHash('md5').update(content).digest('hex') + '"';
 
     const entry = {
@@ -1865,7 +1872,19 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
+server.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.error(`[PMusic Server] ❌ Port ${PORT} is already in use by another process.`);
+  } else {
+    console.error(`[PMusic Server] ❌ Server socket error:`, err);
+  }
+  process.exit(1);
+});
+
 server.listen(PORT, HOST, () => {
-  console.log(`Spotify server running at http://${HOST}:${PORT}`);
-  console.log(`Full-song resolver active at http://${HOST}:${PORT}/api/resolve-full-song?q=`);
+  console.log(`=======================================================`);
+  console.log(`✅ Spotify server running at http://${HOST}:${PORT}`);
+  console.log(`📡 Full-song resolver active at http://${HOST}:${PORT}/api/resolve-full-song?q=`);
+  console.log(`🩺 Health check ready at http://${HOST}:${PORT}/healthz`);
+  console.log(`=======================================================`);
 });
