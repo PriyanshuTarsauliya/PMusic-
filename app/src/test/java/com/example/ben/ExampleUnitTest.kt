@@ -7,7 +7,7 @@ import org.junit.Test
 /**
  * Micro-Level Unit Test Suite for Android Client Components.
  * Tests data modeling, JSON serialization, duration parsing, playlist mutation,
- * and playback state enums.
+ * playback state enums, and defensive security validations.
  */
 class ExampleUnitTest {
 
@@ -153,5 +153,28 @@ class ExampleUnitTest {
         assertTrue(engines.contains(PlaybackManager.Engine.NONE))
         assertTrue(engines.contains(PlaybackManager.Engine.YOUTUBE))
         assertTrue(engines.contains(PlaybackManager.Engine.MEDIA_PLAYER))
+    }
+
+    @Test
+    fun videoIdSanitization_stripsInjectionPayloads() {
+        val rawVideoId = "fHI8X4OXluQ'); alert(1); //"
+        val clean = rawVideoId.replace(Regex("[^a-zA-Z0-9_-]"), "")
+        assertEquals("fHI8X4OXluQalert1", clean)
+        assertFalse(clean.contains("'"))
+        assertFalse(clean.contains(";"))
+        assertFalse(clean.contains(" "))
+    }
+
+    @Test
+    fun spotifyCallback_validatesHostAuthenticity() {
+        fun isAuthenticHost(host: String?): Boolean {
+            return host?.endsWith("spotify.com") == true
+        }
+
+        assertTrue(isAuthenticHost("accounts.spotify.com"))
+        assertTrue(isAuthenticHost("spotify.com"))
+        assertFalse(isAuthenticHost("evil-spotify.com.attacker.com"))
+        assertFalse(isAuthenticHost("spotify.com.attacker.org"))
+        assertFalse(isAuthenticHost(null))
     }
 }

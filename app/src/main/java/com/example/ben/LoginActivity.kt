@@ -81,8 +81,8 @@ class LoginActivity : AppCompatActivity() {
                     }
                     conn.disconnect()
                 } catch (e: Exception) {
-                    // Offline development fallback: allows testing even when local backend is not reachable from emulator
-                    success = true
+                    errorMsg = "Unable to connect to authentication server. Please check your network connection."
+                    success = false
                 }
 
                 runOnUiThread {

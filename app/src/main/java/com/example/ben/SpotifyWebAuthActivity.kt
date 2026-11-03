@@ -69,8 +69,10 @@ class SpotifyWebAuthActivity : AppCompatActivity() {
                 override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
                     val url = request?.url?.toString() ?: return false
                     
-                    // If redirected back to app or user account dashboard after login
-                    if (url.startsWith(SPOTIFY_REDIRECT_URI) || url.contains("accounts.spotify.com/status") || url.contains("/overview")) {
+                    // If redirected back to app or authentic user account dashboard after login
+                    val uri = url.toUri()
+                    val isSpotifyHost = uri.host?.endsWith("spotify.com") == true
+                    if (url.startsWith(SPOTIFY_REDIRECT_URI) || (isSpotifyHost && (url.contains("accounts.spotify.com/status") || url.contains("/overview")))) {
                         handleLoginSuccess(url)
                         return true
                     }

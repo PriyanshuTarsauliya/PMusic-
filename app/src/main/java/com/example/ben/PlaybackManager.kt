@@ -378,8 +378,9 @@ object PlaybackManager {
             pendingVideoId = videoId
         }
 
+        val cleanVideoId = videoId.replace(Regex("[^a-zA-Z0-9_-]"), "")
         webView?.post {
-            webView?.evaluateJavascript("loadAndPlay('$videoId');", null)
+            webView?.evaluateJavascript("loadAndPlay('$cleanVideoId');", null)
         }
     }
 
