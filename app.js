@@ -3709,12 +3709,12 @@ async function showPlaylistDetail(playlist, pushHistory = true) {
 
   container.innerHTML = `
     <div class="playlist-detail-header">
-      <img class="playlist-cover-img" src="${playlist.artwork || playlist.image}" alt="${playlist.title}">
+      <img class="playlist-cover-img" src="${escapeHtml(playlist.artwork || playlist.image)}" alt="${escapeHtml(playlist.title)}">
       <div style="display:flex; flex-direction:column; gap:6px;">
         <span style="font-size:0.75rem; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:var(--spotify-subdued);">${isCustom ? 'Your Playlist' : 'Public Playlist'}</span>
-        <h1 style="font-size:clamp(1.8rem, 4vw, 2.6rem); font-weight:800; line-height:1.1; margin:0; color:var(--spotify-white);">${playlist.title}</h1>
+        <h1 style="font-size:clamp(1.8rem, 4vw, 2.6rem); font-weight:800; line-height:1.1; margin:0; color:var(--spotify-white);">${escapeHtml(playlist.title)}</h1>
         <div style="font-size:0.9rem; color:var(--spotify-subdued); display:flex; align-items:center; gap:8px; margin-top:4px;">
-          <span style="font-weight:700; color:var(--spotify-white);">${playlist.curator || 'Spotify'}</span>
+          <span style="font-weight:700; color:var(--spotify-white);">${escapeHtml(playlist.curator || 'Spotify')}</span>
           <span>•</span>
           <span>${tracks.length} songs</span>
         </div>
@@ -5017,9 +5017,9 @@ document.addEventListener('DOMContentLoaded', () => {
       row.className = 'sidebar-library-row';
       row.style.cssText = 'display:flex; align-items:center; gap:10px; padding:6px 8px; border-radius:6px; cursor:pointer; transition:background 0.15s ease;';
       row.innerHTML = `
-        <img src="${pl.artwork}" style="width:36px; height:36px; border-radius:4px; object-fit:cover; flex-shrink:0;">
+        <img src="${escapeHtml(pl.artwork)}" style="width:36px; height:36px; border-radius:4px; object-fit:cover; flex-shrink:0;">
         <div style="flex:1; min-width:0;">
-          <div style="font-size:0.85rem; font-weight:600; color:#fff; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${pl.title}</div>
+          <div style="font-size:0.85rem; font-weight:600; color:#fff; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(pl.title)}</div>
           <div style="font-size:0.74rem; color:var(--spotify-subdued);">${(pl.tracks || []).length} songs</div>
         </div>
       `;
@@ -5151,7 +5151,7 @@ document.addEventListener('DOMContentLoaded', () => {
           item.className = 'submenu-item';
           item.innerHTML = `
             <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
-            <span style="overflow:hidden; text-overflow:ellipsis;">${pl.title}</span>
+            <span style="overflow:hidden; text-overflow:ellipsis;">${escapeHtml(pl.title)}</span>
           `;
           item.onclick = (ev) => {
             ev.stopPropagation();

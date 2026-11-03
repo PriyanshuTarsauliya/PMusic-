@@ -301,7 +301,13 @@ function generateExcelXml(feedbackList) {
 // Generate Excel-compatible CSV with UTF-8 BOM
 function generateExcelCsv(feedbackList) {
   const BOM = '\uFEFF';
-  const escapeCsv = (str) => `"${String(str || '').replace(/"/g, '""')}"`;
+  const escapeCsv = (str) => {
+    let s = String(str || '');
+    if (/^[=+\-@\t\r]/.test(s)) {
+      s = "'" + s;
+    }
+    return `"${s.replace(/"/g, '""')}"`;
+  };
   const header = ['#', 'Feedback ID', 'Date & Time', 'Name', 'Category', 'Details', 'Platform'].map(escapeCsv).join(',');
   const lines = feedbackList.map((item, index) => [
     index + 1,
@@ -1433,14 +1439,7 @@ const server = http.createServer(async (req, res) => {
     try {
       const payload = await readJsonBody(req);
       const token = extractToken(req, parsedUrl) || payload.token;
-      let user = getSessionUser(token);
-      let userKey = null;
-
-      if (!user && payload.username) {
-        userKey = payload.username.trim().toLowerCase();
-        const db = getUsersDb();
-        user = db[userKey];
-      }
+      const user = getSessionUser(token);
 
       if (!user) {
         res.writeHead(401, { 'Content-Type': 'application/json' });
@@ -1450,7 +1449,7 @@ const server = http.createServer(async (req, res) => {
 
       const tracks = Array.isArray(payload.tracks) ? payload.tracks : [];
       const db = getUsersDb();
-      userKey = userKey || user.username.toLowerCase();
+      const userKey = (user.username || user.id || '').toLowerCase();
       if (db[userKey]) {
         db[userKey].library = tracks;
         db[userKey].likedTracks = tracks.map(t => t.id);
@@ -1470,15 +1469,11 @@ const server = http.createServer(async (req, res) => {
   // API Route: Get user's library from database
   if (pathname === '/api/user/library' && req.method === 'GET') {
     const token = extractToken(req, parsedUrl);
-    let user = getSessionUser(token);
-    if (!user && parsedUrl.query.username) {
-      const db = getUsersDb();
-      user = db[parsedUrl.query.username.trim().toLowerCase()];
-    }
+    const user = getSessionUser(token);
 
     if (!user) {
-      res.writeHead(404, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'User not found' }));
+      res.writeHead(401, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Authentication required' }));
       return;
     }
 
@@ -1544,8 +1539,18 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // API Route: Emergency Rate Limit Reset
+  // API Route: Emergency Rate Limit Reset (Protected by ADMIN_KEY)
   if (pathname === '/api/security/reset-rate-limit' && req.method === 'POST') {
+    const adminKey = process.env.ADMIN_KEY || (process.env.NODE_ENV !== 'production' ? 'pmusic_dev_admin_key' : null);
+    const authHeader = req.headers['authorization'] || '';
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
+
+    if (!adminKey || token !== adminKey) {
+      res.writeHead(403, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Forbidden: Admin authorization required' }));
+      return;
+    }
+
     ipRateLimit.clear();
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ success: true, message: 'All rate limits reset successfully.' }));
@@ -1647,12 +1652,18 @@ const server = http.createServer(async (req, res) => {
       const body = await readJsonBody(req);
       const playlists = getSavedPlaylists();
       if (body.action === 'create') {
+        const sanitizePl = (s, max = 120) => String(s || '').replace(/[<>]/g, '').trim().slice(0, max);
+        const rawArtwork = String(body.artwork || '').trim();
+        const safeArtwork = (rawArtwork.startsWith('http://') || rawArtwork.startsWith('https://'))
+          ? rawArtwork.replace(/[<>"']/g, '')
+          : 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=400&auto=format&fit=crop&q=80';
+
         const newPl = {
           id: 'user-pl-' + Date.now().toString(36) + '-' + Math.random().toString(36).substr(2, 5),
-          title: (body.title || '').trim() || ('My Playlist #' + (playlists.length + 1)),
-          description: (body.description || '').trim() || 'Created by user',
-          artwork: body.artwork || 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=400&auto=format&fit=crop&q=80',
-          curator: body.curator || 'You',
+          title: sanitizePl(body.title) || ('My Playlist #' + (playlists.length + 1)),
+          description: sanitizePl(body.description, 300) || 'Created by user',
+          artwork: safeArtwork,
+          curator: sanitizePl(body.curator, 50) || 'You',
           createdAt: Date.now(),
           tracks: Array.isArray(body.tracks) ? body.tracks : []
         };
@@ -1820,6 +1831,24 @@ const server = http.createServer(async (req, res) => {
 
   // Strict jail directory boundary check
   if (!filePath.startsWith(DIR)) {
+    res.writeHead(403, { 'Content-Type': 'text/plain' });
+    res.end('Forbidden');
+    return;
+  }
+
+  // Prevent direct retrieval of database, secret, and backend source files
+  const lowerNorm = normalizedPath.toLowerCase();
+  const isSensitiveFile =
+    lowerNorm.startsWith('/data/') ||
+    lowerNorm.startsWith('\\data\\') ||
+    lowerNorm.startsWith('/auth/') ||
+    lowerNorm.startsWith('\\auth\\') ||
+    lowerNorm.includes('server.js') ||
+    lowerNorm.includes('package') ||
+    lowerNorm.includes('test') ||
+    (lowerNorm.endsWith('.json') && lowerNorm !== '/manifest.json' && lowerNorm !== '\\manifest.json');
+
+  if (isSensitiveFile) {
     res.writeHead(403, { 'Content-Type': 'text/plain' });
     res.end('Forbidden');
     return;
