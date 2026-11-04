@@ -544,7 +544,7 @@ requestId: req_1729161205</div>
               <p class="chat-modal-subtitle">Give any song names or chat input — songs are resolved and saved permanently to your library!</p>
             </div>
           </div>
-          <button class="chat-modal-close-btn" id="btn-close-chat-modal" aria-label="Close modal">&times;</button>
+          <button type="button" class="chat-modal-close-btn" id="btn-close-chat-modal" aria-label="Close modal" onclick="var m=document.getElementById('chat-modal-overlay'); if(m){m.style.setProperty('display','none','important'); m.classList.remove('active');} if(typeof closeChatModal==='function')closeChatModal();" style="position:relative; z-index:100001; cursor:pointer; pointer-events:auto;">&times;</button>
         </div>
 
         <!-- Interactive Examples Row -->
@@ -646,7 +646,7 @@ Or write: 'Hey add Shape of You, Perfect, and Faded to my library'"></textarea>
             </svg>
             <span class="auth-brand-text">Profile &amp; Account</span>
           </div>
-          <button class="chat-modal-close-btn" id="btn-close-profile-modal" aria-label="Close modal">&times;</button>
+          <button type="button" class="chat-modal-close-btn" id="btn-close-profile-modal" aria-label="Close modal" onclick="var m=document.getElementById('profile-modal-overlay'); if(m){m.style.setProperty('display','none','important'); m.classList.remove('active');} if(typeof closeProfileModal==='function')closeProfileModal();" style="position:relative; z-index:100001; cursor:pointer; pointer-events:auto;">&times;</button>
         </div>
         <div class="auth-modal-content" style="text-align: center; padding: 20px;">
           <div class="profile-avatar-large" id="profile-modal-avatar-lg">
@@ -693,7 +693,7 @@ Or write: 'Hey add Shape of You, Perfect, and Faded to my library'"></textarea>
             </svg>
             <span class="auth-brand-text">PMusic Database Login</span>
           </div>
-          <button class="chat-modal-close-btn" id="btn-close-auth-modal" aria-label="Close modal">&times;</button>
+          <button type="button" class="chat-modal-close-btn" id="btn-close-auth-modal" aria-label="Close modal" onclick="var m=document.getElementById('auth-modal-overlay'); if(m){m.style.setProperty('display','none','important'); m.classList.remove('active');} if(typeof closeAuthModal==='function')closeAuthModal();" style="position:relative; z-index:100001; cursor:pointer; pointer-events:auto;">&times;</button>
         </div>
 
         <div class="auth-modal-content">
@@ -702,12 +702,12 @@ Or write: 'Hey add Shape of You, Perfect, and Faded to my library'"></textarea>
 
           <!-- Auth Mode Tabs (Login vs Register) -->
           <div class="auth-tabs-row">
-            <button class="auth-tab-btn active" id="auth-tab-login" data-mode="login">Log In</button>
-            <button class="auth-tab-btn" id="auth-tab-register" data-mode="register">Create New Account</button>
+            <button type="button" class="auth-tab-btn active" id="auth-tab-login" data-mode="login" onclick="if(typeof openAuthModal==='function')openAuthModal('login');">Log In</button>
+            <button type="button" class="auth-tab-btn" id="auth-tab-register" data-mode="register" onclick="if(typeof openAuthModal==='function')openAuthModal('register');">Create New Account</button>
           </div>
 
           <!-- Error Alert Banner -->
-          <div class="auth-alert error" id="auth-alert" style="display:none;"></div>
+          <div class="auth-alert error" id="auth-alert" style="display:none !important;"></div>
 
           <!-- Auth Form -->
           <form class="auth-form" id="auth-form" onsubmit="return false;">
@@ -724,7 +724,7 @@ Or write: 'Hey add Shape of You, Perfect, and Faded to my library'"></textarea>
               </div>
             </div>
 
-            <div class="auth-field-group" id="auth-confirm-group" style="display:none;">
+            <div class="auth-field-group hidden" id="auth-confirm-group" style="display:none !important;">
               <label for="auth-password-confirm" class="auth-label">Confirm Password</label>
               <input type="password" id="auth-password-confirm" class="auth-input" placeholder="Repeat your password" autocomplete="new-password">
             </div>
@@ -754,7 +754,7 @@ Or write: 'Hey add Shape of You, Perfect, and Faded to my library'"></textarea>
             </svg>
             <span class="feedback-brand-text">PMusic Feedback &amp; Excel Exporter</span>
           </div>
-          <button class="chat-modal-close-btn" id="btn-close-feedback-modal" aria-label="Close modal">&times;</button>
+          <button type="button" class="chat-modal-close-btn" id="btn-close-feedback-modal" aria-label="Close modal" onclick="var m=document.getElementById('feedback-modal-overlay'); if(m){m.style.setProperty('display','none','important'); m.classList.remove('active');} if(typeof closeFeedbackModal==='function')closeFeedbackModal();" style="position:relative; z-index:100001; cursor:pointer; pointer-events:auto;">&times;</button>
         </div>
 
         <div class="feedback-modal-content">
@@ -821,7 +821,7 @@ Or write: 'Hey add Shape of You, Perfect, and Faded to my library'"></textarea>
               <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
               <span>Copy</span>
             </button>
-            <button class="chat-modal-close-btn" id="btn-close-lyrics-modal" aria-label="Close lyrics">&times;</button>
+            <button type="button" class="chat-modal-close-btn" id="btn-close-lyrics-modal" aria-label="Close lyrics" onclick="var m=document.getElementById('lyrics-modal-overlay'); if(m){m.style.setProperty('display','none','important'); m.classList.remove('active');} if(typeof closeLyricsModal==='function')closeLyricsModal();" style="position:relative; z-index:100001; cursor:pointer; pointer-events:auto;">&times;</button>
           </div>
         </div>
         <div class="lyrics-content-scroll" id="lyrics-content-scroll">
@@ -972,7 +972,7 @@ Or write: 'Hey add Shape of You, Perfect, and Faded to my library'"></textarea>
               <p class="chat-modal-subtitle">Organize and save your favorite songs</p>
             </div>
           </div>
-          <button class="chat-modal-close-btn" id="btn-close-create-playlist-modal" aria-label="Close modal">&times;</button>
+          <button type="button" class="chat-modal-close-btn" id="btn-close-create-playlist-modal" aria-label="Close modal" onclick="var m=document.getElementById('create-playlist-modal-overlay'); if(m){m.style.setProperty('display','none','important'); m.classList.remove('active');} if(typeof closeCreatePlaylistModal==='function')closeCreatePlaylistModal();" style="position:relative; z-index:100001; cursor:pointer; pointer-events:auto;">&times;</button>
         </div>
         <div style="padding:20px; display:flex; flex-direction:column; gap:16px;">
           <div style="display:flex; gap:16px; align-items:center;">
@@ -989,8 +989,8 @@ Or write: 'Hey add Shape of You, Perfect, and Faded to my library'"></textarea>
             <textarea id="input-create-playlist-desc" placeholder="Give your playlist a catchy description" rows="2" style="width:100%; border-radius:6px; background:#282828; border:1px solid rgba(255,255,255,0.12); color:#fff; padding:8px 12px; font-size:0.85rem; font-family:inherit; outline:none; resize:none; box-sizing:border-box;"></textarea>
           </div>
           <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:8px;">
-            <button id="btn-cancel-create-playlist" style="background:transparent; border:none; color:var(--spotify-subdued); font-size:0.85rem; font-weight:700; padding:8px 16px; cursor:pointer;">Cancel</button>
-            <button id="btn-submit-create-playlist" style="background:var(--spotify-white); color:#000; border:none; border-radius:500px; font-size:0.85rem; font-weight:700; padding:10px 24px; cursor:pointer; transition:transform 0.15s ease;">Save &amp; Open</button>
+            <button type="button" id="btn-cancel-create-playlist" onclick="var m=document.getElementById('create-playlist-modal-overlay'); if(m){m.style.setProperty('display','none','important'); m.classList.remove('active');} if(typeof closeCreatePlaylistModal==='function')closeCreatePlaylistModal();" style="background:transparent; border:none; color:var(--spotify-subdued); font-size:0.85rem; font-weight:700; padding:8px 16px; cursor:pointer;">Cancel</button>
+            <button type="button" id="btn-submit-create-playlist" style="background:var(--spotify-white); color:#000; border:none; border-radius:500px; font-size:0.85rem; font-weight:700; padding:10px 24px; cursor:pointer; transition:transform 0.15s ease;">Save &amp; Open</button>
           </div>
         </div>
       </div>
@@ -1007,7 +1007,7 @@ Or write: 'Hey add Shape of You, Perfect, and Faded to my library'"></textarea>
               <p class="chat-modal-subtitle">Web Audio API 5-Band Hardware EQ</p>
             </div>
           </div>
-          <button class="chat-modal-close-btn" id="btn-close-eq-modal" aria-label="Close modal">&times;</button>
+          <button type="button" class="chat-modal-close-btn" id="btn-close-eq-modal" aria-label="Close modal" onclick="var m=document.getElementById('equalizer-modal-overlay'); if(m){m.style.setProperty('display','none','important'); m.classList.remove('active');} if(typeof closeEqualizerModal==='function')closeEqualizerModal();" style="position:relative; z-index:100001; cursor:pointer; pointer-events:auto;">&times;</button>
         </div>
         <div style="padding:20px;">
           <!-- Preset selector -->

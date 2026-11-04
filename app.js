@@ -669,10 +669,20 @@ function openProfileModal() {
   if (overlay) overlay.style.display = 'flex';
 }
 
-function closeProfileModal() {
+function closeProfileModal(e) {
+  if (e) {
+    if (typeof e.preventDefault === 'function') e.preventDefault();
+    if (typeof e.stopPropagation === 'function') e.stopPropagation();
+  }
   const overlay = document.getElementById('profile-modal-overlay');
-  if (overlay) overlay.style.display = 'none';
+  if (overlay) {
+    overlay.style.setProperty('display', 'none', 'important');
+    overlay.classList.remove('active');
+  }
 }
+
+window.openProfileModal = openProfileModal;
+window.closeProfileModal = closeProfileModal;
 
 async function handleSaveProfileName() {
   const input = document.getElementById('profile-edit-displayname');
@@ -727,38 +737,62 @@ function openAuthModal(mode = 'login') {
   const userInput = document.getElementById('auth-username-input');
 
   if (alertEl) {
-    alertEl.style.display = 'none';
+    alertEl.style.setProperty('display', 'none', 'important');
     alertEl.textContent = '';
   }
 
   if (mode === 'register') {
     if (loginTab) loginTab.classList.remove('active');
     if (registerTab) registerTab.classList.add('active');
-    if (confirmGroup) confirmGroup.style.display = 'flex';
+    if (confirmGroup) {
+      confirmGroup.style.setProperty('display', 'flex', 'important');
+      confirmGroup.classList.remove('hidden');
+    }
     if (title) title.textContent = 'Create a Free Account';
     if (subtitle) subtitle.textContent = 'Choose any username & password to permanently save all your songs in the database.';
     if (submitLabel) submitLabel.textContent = 'Create Account & Sync';
   } else {
     if (loginTab) loginTab.classList.add('active');
     if (registerTab) registerTab.classList.remove('active');
-    if (confirmGroup) confirmGroup.style.display = 'none';
+    if (confirmGroup) {
+      confirmGroup.style.setProperty('display', 'none', 'important');
+      confirmGroup.classList.add('hidden');
+    }
     if (title) title.textContent = 'Log in to save songs anywhere';
     if (subtitle) subtitle.textContent = 'Log in with any username & password to access your songs on any phone, browser, or laptop.';
     if (submitLabel) submitLabel.textContent = 'Log In';
+    const confirmInput = document.getElementById('auth-password-confirm');
+    if (confirmInput) confirmInput.value = '';
   }
 
-  if (overlay) overlay.style.display = 'flex';
+  if (overlay) {
+    overlay.style.setProperty('display', 'flex', 'important');
+    overlay.classList.add('active');
+  }
   if (userInput) {
     setTimeout(() => userInput.focus(), 80);
   }
 }
 
-function closeAuthModal() {
+function closeAuthModal(e) {
+  if (e) {
+    if (typeof e.preventDefault === 'function') e.preventDefault();
+    if (typeof e.stopPropagation === 'function') e.stopPropagation();
+  }
   const overlay = document.getElementById('auth-modal-overlay');
-  if (overlay) overlay.style.display = 'none';
+  if (overlay) {
+    overlay.style.setProperty('display', 'none', 'important');
+    overlay.classList.remove('active');
+  }
   const alertEl = document.getElementById('auth-alert');
-  if (alertEl) alertEl.style.display = 'none';
+  if (alertEl) {
+    alertEl.style.setProperty('display', 'none', 'important');
+    alertEl.textContent = '';
+  }
 }
+
+window.openAuthModal = openAuthModal;
+window.closeAuthModal = closeAuthModal;
 
 // ==========================================================================
 // HYPERSCALE SECURITY: 3-STEP HANDSHAKE & STREAM LEASE ENGINE
@@ -858,7 +892,15 @@ function stopStreamLeaseHeartbeat() {
   }
 }
 
-async function handleAuthSubmit() {
+let isAuthSubmitting = false;
+
+async function handleAuthSubmit(e) {
+  if (e) {
+    if (typeof e.preventDefault === 'function') e.preventDefault();
+    if (typeof e.stopPropagation === 'function') e.stopPropagation();
+  }
+  if (isAuthSubmitting) return;
+
   const userInput = document.getElementById('auth-username-input');
   const pwdInput = document.getElementById('auth-password-input');
   const confirmInput = document.getElementById('auth-password-confirm');
@@ -874,7 +916,7 @@ async function handleAuthSubmit() {
     if (alertEl) {
       alertEl.className = 'auth-alert error';
       alertEl.textContent = msg;
-      alertEl.style.display = 'block';
+      alertEl.style.setProperty('display', 'block', 'important');
     }
   }
 
@@ -886,6 +928,8 @@ async function handleAuthSubmit() {
     showError('Please enter a password.');
     return;
   }
+
+  isAuthSubmitting = true;
 
   if (currentAuthMode === 'register') {
     if (password.length < 4) {
@@ -1034,6 +1078,7 @@ async function handleAuthSubmit() {
   } catch (err) {
     showError('Connection error. Could not contact PMusic database server.');
   } finally {
+    isAuthSubmitting = false;
     if (submitBtn) submitBtn.disabled = false;
     if (spinner) spinner.style.display = 'none';
   }
@@ -1312,10 +1357,20 @@ function openFeedbackModal() {
   logUbiEvent('hitOpenFeedbackModal');
 }
 
-function closeFeedbackModal() {
+function closeFeedbackModal(e) {
+  if (e) {
+    if (typeof e.preventDefault === 'function') e.preventDefault();
+    if (typeof e.stopPropagation === 'function') e.stopPropagation();
+  }
   const overlay = document.getElementById('feedback-modal-overlay');
-  if (overlay) overlay.style.display = 'none';
+  if (overlay) {
+    overlay.style.setProperty('display', 'none', 'important');
+    overlay.classList.remove('active');
+  }
 }
+
+window.openFeedbackModal = openFeedbackModal;
+window.closeFeedbackModal = closeFeedbackModal;
 
 // Download native XML Spreadsheet 2003 or Excel file directly in the browser
 function triggerClientExcelDownload(feedbackItem) {
@@ -1466,10 +1521,20 @@ function openChatModal() {
   }
 }
 
-function closeChatModal() {
+function closeChatModal(e) {
+  if (e) {
+    if (typeof e.preventDefault === 'function') e.preventDefault();
+    if (typeof e.stopPropagation === 'function') e.stopPropagation();
+  }
   const modal = document.getElementById('chat-modal-overlay');
-  if (modal) modal.style.display = 'none';
+  if (modal) {
+    modal.style.setProperty('display', 'none', 'important');
+    modal.classList.remove('active');
+  }
 }
+
+window.openChatModal = openChatModal;
+window.closeChatModal = closeChatModal;
 
 function updateChatInputCounter() {
   const textarea = document.getElementById('chat-song-textarea');
@@ -2016,13 +2081,24 @@ function openLyricsModal() {
   }
 }
 
-function closeLyricsModal() {
+function closeLyricsModal(e) {
+  if (e) {
+    if (typeof e.preventDefault === 'function') e.preventDefault();
+    if (typeof e.stopPropagation === 'function') e.stopPropagation();
+  }
   const overlay = document.getElementById('lyrics-modal-overlay');
   const btn = document.getElementById('btn-toggle-lyrics');
-  if (overlay) overlay.style.display = 'none';
+  if (overlay) {
+    overlay.style.setProperty('display', 'none', 'important');
+    overlay.classList.remove('active');
+  }
   if (btn) btn.classList.remove('active-tool');
   State.isLyricsOpen = false;
 }
+
+window.openLyricsModal = openLyricsModal;
+window.closeLyricsModal = closeLyricsModal;
+window.toggleLyricsModal = toggleLyricsModal;
 
 function toggleLyricsModal() {
   if (State.isLyricsOpen) {
@@ -5090,10 +5166,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     // Escape closes all modals
     if (e.key === 'Escape') {
-      closeLyricsModal();
-      closeChatModal();
-      closeAuthModal();
-      closeFeedbackModal();
+      if (typeof closeLyricsModal === 'function') closeLyricsModal(e);
+      if (typeof closeChatModal === 'function') closeChatModal(e);
+      if (typeof closeAuthModal === 'function') closeAuthModal(e);
+      if (typeof closeFeedbackModal === 'function') closeFeedbackModal(e);
+      if (typeof closeProfileModal === 'function') closeProfileModal(e);
+      if (typeof closeCreatePlaylistModal === 'function') closeCreatePlaylistModal(e);
+      if (typeof closeEqualizerModal === 'function') closeEqualizerModal(e);
+      if (typeof closeSecurityModal === 'function') closeSecurityModal(e);
     }
   });
 
@@ -5318,18 +5398,31 @@ document.addEventListener('DOMContentLoaded', () => {
     const desc = document.getElementById('input-create-playlist-desc');
     if (input) input.value = `My Playlist #${State.userPlaylists.length + 1}`;
     if (desc) desc.value = '';
-    if (overlay) overlay.style.display = 'flex';
+    if (overlay) {
+      overlay.style.setProperty('display', 'flex', 'important');
+      overlay.classList.add('active');
+    }
     if (input) {
       input.focus();
       input.select();
     }
-    overlay._initialTrack = initialTrack;
+    if (overlay) overlay._initialTrack = initialTrack;
   }
 
-  function closeCreatePlaylistModal() {
+  function closeCreatePlaylistModal(e) {
+    if (e) {
+      if (typeof e.preventDefault === 'function') e.preventDefault();
+      if (typeof e.stopPropagation === 'function') e.stopPropagation();
+    }
     const overlay = document.getElementById('create-playlist-modal-overlay');
-    if (overlay) overlay.style.display = 'none';
+    if (overlay) {
+      overlay.style.setProperty('display', 'none', 'important');
+      overlay.classList.remove('active');
+    }
   }
+
+  window.openCreatePlaylistModal = openCreatePlaylistModal;
+  window.closeCreatePlaylistModal = closeCreatePlaylistModal;
 
   async function submitCreatePlaylist() {
     const overlay = document.getElementById('create-playlist-modal-overlay');
@@ -5710,13 +5803,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function openEqualizerModal() {
     const modal = document.getElementById('equalizer-modal-overlay');
-    if (modal) modal.style.display = 'flex';
+    if (modal) {
+      modal.style.setProperty('display', 'flex', 'important');
+      modal.classList.add('active');
+    }
   }
 
-  function closeEqualizerModal() {
+  function closeEqualizerModal(e) {
+    if (e) {
+      if (typeof e.preventDefault === 'function') e.preventDefault();
+      if (typeof e.stopPropagation === 'function') e.stopPropagation();
+    }
     const modal = document.getElementById('equalizer-modal-overlay');
-    if (modal) modal.style.display = 'none';
+    if (modal) {
+      modal.style.setProperty('display', 'none', 'important');
+      modal.classList.remove('active');
+    }
   }
+
+  window.openEqualizerModal = openEqualizerModal;
+  window.closeEqualizerModal = closeEqualizerModal;
 
   const btnToggleEq = document.getElementById('btn-toggle-eq');
   if (btnToggleEq) {
@@ -5907,14 +6013,30 @@ document.addEventListener('DOMContentLoaded', () => {
   if (authForm) {
     authForm.addEventListener('submit', (e) => {
       e.preventDefault();
-      handleAuthSubmit();
+      handleAuthSubmit(e);
     });
   }
 
   const btnAuthSubmit = document.getElementById('btn-auth-submit');
   if (btnAuthSubmit) {
-    btnAuthSubmit.addEventListener('click', handleAuthSubmit);
+    btnAuthSubmit.addEventListener('click', (e) => {
+      if (!authForm) handleAuthSubmit(e);
+    });
   }
+
+  // Clear auth alert when user types in any auth input
+  ['auth-username-input', 'auth-password-input', 'auth-password-confirm'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.addEventListener('input', () => {
+        const alertEl = document.getElementById('auth-alert');
+        if (alertEl) {
+          alertEl.style.setProperty('display', 'none', 'important');
+          alertEl.textContent = '';
+        }
+      });
+    }
+  });
 
   const userAvatarBtn = document.getElementById('user-avatar-btn');
   const userDropdownPopover = document.getElementById('user-dropdown-popover');
@@ -6089,6 +6211,9 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
   }
+
+  window.openSecurityModal = openSecurityModal;
+  window.closeSecurityModal = closeSecurityModal;
 
   if (btnSecurityDashboard) {
     btnSecurityDashboard.addEventListener('click', openSecurityModal);

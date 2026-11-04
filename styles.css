@@ -2051,7 +2051,12 @@ html, body {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  cursor: pointer;
+  cursor: pointer !important;
+  pointer-events: auto !important;
+  position: relative;
+  z-index: 100001;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -3200,6 +3205,13 @@ html, body {
   margin-bottom: 14px;
 }
 
+.auth-alert:empty {
+  display: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: none !important;
+}
+
 .auth-alert.error {
   background: rgba(235, 87, 87, 0.15);
   border: 1px solid rgba(235, 87, 87, 0.4);
@@ -3222,6 +3234,10 @@ html, body {
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+#auth-confirm-group.hidden {
+  display: none !important;
 }
 
 .auth-label {
