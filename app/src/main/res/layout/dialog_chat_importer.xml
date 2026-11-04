@@ -4,7 +4,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:background="#181818"
+    android:background="@drawable/bg_bottom_sheet"
     android:orientation="vertical"
     android:padding="20dp">
 
@@ -76,45 +76,65 @@
             android:layout_height="wrap_content"
             android:orientation="horizontal">
 
-            <Button
+            <TextView
                 android:id="@+id/chipSampleNumbered"
-                style="@style/Widget.MaterialComponents.Button.TextButton"
                 android:layout_width="wrap_content"
                 android:layout_height="32dp"
-                android:background="@drawable/bg_spotify_button_outlined"
+                android:background="@drawable/bg_speed_pill"
+                android:clickable="true"
+                android:focusable="true"
+                android:foreground="?attr/selectableItemBackground"
+                android:gravity="center"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
                 android:text="🔢 1. Title - Artist"
                 android:textColor="@color/spotify_white"
                 android:textSize="11sp" />
 
-            <Button
+            <TextView
                 android:id="@+id/chipSampleLines"
-                style="@style/Widget.MaterialComponents.Button.TextButton"
                 android:layout_width="wrap_content"
                 android:layout_height="32dp"
                 android:layout_marginStart="8dp"
-                android:background="@drawable/bg_spotify_button_outlined"
+                android:background="@drawable/bg_speed_pill"
+                android:clickable="true"
+                android:focusable="true"
+                android:foreground="?attr/selectableItemBackground"
+                android:gravity="center"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
                 android:text="📜 Line by Line"
                 android:textColor="@color/spotify_white"
                 android:textSize="11sp" />
 
-            <Button
+            <TextView
                 android:id="@+id/chipSampleComma"
-                style="@style/Widget.MaterialComponents.Button.TextButton"
                 android:layout_width="wrap_content"
                 android:layout_height="32dp"
                 android:layout_marginStart="8dp"
-                android:background="@drawable/bg_spotify_button_outlined"
+                android:background="@drawable/bg_speed_pill"
+                android:clickable="true"
+                android:focusable="true"
+                android:foreground="?attr/selectableItemBackground"
+                android:gravity="center"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
                 android:text="🔤 Comma Separated"
                 android:textColor="@color/spotify_white"
                 android:textSize="11sp" />
 
-            <Button
+            <TextView
                 android:id="@+id/chipSampleChat"
-                style="@style/Widget.MaterialComponents.Button.TextButton"
                 android:layout_width="wrap_content"
                 android:layout_height="32dp"
                 android:layout_marginStart="8dp"
-                android:background="@drawable/bg_spotify_button_outlined"
+                android:background="@drawable/bg_speed_pill"
+                android:clickable="true"
+                android:focusable="true"
+                android:foreground="?attr/selectableItemBackground"
+                android:gravity="center"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
                 android:text="💬 Chat Prompt"
                 android:textColor="@color/spotify_white"
                 android:textSize="11sp" />
@@ -255,3 +275,4 @@
     </LinearLayout>
 
 </LinearLayout>
+

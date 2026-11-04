@@ -14,6 +14,8 @@
         <item name="android:windowBackground">@color/spotify_black</item>
         <item name="android:textColorPrimary">@color/spotify_white</item>
         <item name="android:textColorSecondary">@color/spotify_subdued</item>
+        <item name="bottomSheetDialogTheme">@style/SpotifyBottomSheetDialogTheme</item>
+        <item name="alertDialogTheme">@style/SpotifyAlertDialogTheme</item>
     </style>
 
     <!-- Spotify Styled Bottom Navigation Bar -->
@@ -29,5 +31,32 @@
 
     <style name="Widget.Spotify.ActiveIndicator" parent="Widget.Material3.BottomNavigationView.ActiveIndicator">
         <item name="android:color">@android:color/transparent</item>
+    </style>
+
+    <!-- Spotify Styled Bottom Sheet Dialog -->
+    <style name="SpotifyBottomSheetDialogTheme" parent="Theme.Design.BottomSheetDialog">
+        <item name="bottomSheetStyle">@style/SpotifyBottomSheetStyle</item>
+        <item name="android:windowIsFloating">false</item>
+        <item name="android:navigationBarColor">@color/spotify_black</item>
+        <item name="android:statusBarColor">@color/spotify_black</item>
+    </style>
+
+    <style name="SpotifyBottomSheetStyle" parent="Widget.Design.BottomSheet.Modal">
+        <item name="android:background">@android:color/transparent</item>
+    </style>
+
+    <!-- Spotify Styled Dark Alert Dialog -->
+    <style name="SpotifyAlertDialogTheme" parent="ThemeOverlay.MaterialComponents.Dialog.Alert">
+        <item name="android:background">@color/spotify_card</item>
+        <item name="colorSurface">@color/spotify_card</item>
+        <item name="android:textColorPrimary">@color/spotify_white</item>
+        <item name="android:textColorSecondary">@color/spotify_subdued</item>
+        <item name="colorSecondary">@color/spotify_green</item>
+        <item name="buttonBarPositiveButtonStyle">@style/SpotifyDialogButton</item>
+        <item name="buttonBarNegativeButtonStyle">@style/SpotifyDialogButton</item>
+    </style>
+
+    <style name="SpotifyDialogButton" parent="Widget.MaterialComponents.Button.TextButton">
+        <item name="android:textColor">@color/spotify_green</item>
     </style>
 </resources>

@@ -286,6 +286,23 @@ class ExampleUnitTest {
     }
 
     @Test
+    fun playbackSpeed_cyclesThroughAllSixPresetSpeeds() {
+        val speeds = floatArrayOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f)
+        fun getNextSpeed(cur: Float): Float {
+            var curIdx = speeds.indexOfFirst { kotlin.math.abs(it - cur) < 0.05f }
+            if (curIdx < 0) curIdx = 2
+            return speeds[(curIdx + 1) % speeds.size]
+        }
+
+        assertEquals(1.25f, getNextSpeed(1.0f), 0.001f)
+        assertEquals(1.5f, getNextSpeed(1.25f), 0.001f)
+        assertEquals(2.0f, getNextSpeed(1.5f), 0.001f)
+        assertEquals(0.5f, getNextSpeed(2.0f), 0.001f)
+        assertEquals(0.75f, getNextSpeed(0.5f), 0.001f)
+        assertEquals(1.0f, getNextSpeed(0.75f), 0.001f)
+    }
+
+    @Test
     fun mediaPlaybackService_definesStandardActionProtocol() {
         assertEquals("com.example.ben.action.START", MediaPlaybackService.ACTION_START)
         assertEquals("com.example.ben.action.UPDATE", MediaPlaybackService.ACTION_UPDATE)

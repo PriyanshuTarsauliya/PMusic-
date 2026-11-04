@@ -829,6 +829,18 @@ class MainActivity : AppCompatActivity(), PlaybackManager.PlaybackListener {
             PlaybackManager.playPrevious()
         }
 
+        binding.btnPlayerSpeed.setOnClickListener {
+            val nextSpeed = PlaybackManager.cyclePlaybackSpeed()
+            updatePlayerSpeedUi(nextSpeed)
+            Toast.makeText(this, "Speed: ${nextSpeed}x", Toast.LENGTH_SHORT).show()
+        }
+
+        binding.btnPlayerSpeed.setOnLongClickListener {
+            showPlaybackSpeedDialog()
+            true
+        }
+        updatePlayerSpeedUi(PlaybackManager.playbackSpeed)
+
         binding.playerSeekBar.setOnSeekBarChangeListener(
             object : SeekBar.OnSeekBarChangeListener {
                 override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
@@ -897,6 +909,41 @@ class MainActivity : AppCompatActivity(), PlaybackManager.PlaybackListener {
                 binding.playerSeekBar.progress = currentPositionMs.coerceIn(0, fullDuration)
             }
         }
+    }
+
+    override fun onPlaybackSpeedChanged(speed: Float) {
+        updatePlayerSpeedUi(speed)
+    }
+
+    private fun updatePlayerSpeedUi(speed: Float) {
+        val isNormal = kotlin.math.abs(speed - 1.0f) < 0.05f
+        binding.btnPlayerSpeed.text = if (isNormal) "1.0x" else "${speed}x"
+        if (isNormal) {
+            binding.btnPlayerSpeed.setTextColor(ContextCompat.getColor(this, R.color.spotify_subdued))
+            binding.btnPlayerSpeed.setBackgroundResource(R.drawable.bg_speed_pill)
+        } else {
+            binding.btnPlayerSpeed.setTextColor(ContextCompat.getColor(this, R.color.black))
+            binding.btnPlayerSpeed.setBackgroundResource(R.drawable.bg_spotify_button_speed_active)
+        }
+    }
+
+    private fun showPlaybackSpeedDialog() {
+        val speeds = arrayOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f)
+        val labels = arrayOf("0.5x  (Slower)", "0.75x", "1.0x  (Normal)", "1.25x", "1.5x", "2.0x  (Faster)")
+        val currentSpeed = PlaybackManager.playbackSpeed
+        val selectedIdx = speeds.indexOfFirst { kotlin.math.abs(it - currentSpeed) < 0.05f }.coerceAtLeast(2)
+
+        com.google.android.material.dialog.MaterialAlertDialogBuilder(this, R.style.SpotifyAlertDialogTheme)
+            .setTitle("Playback Speed")
+            .setSingleChoiceItems(labels, selectedIdx) { dialog, which ->
+                val newSpeed = speeds[which]
+                PlaybackManager.setPlaybackSpeed(newSpeed)
+                updatePlayerSpeedUi(newSpeed)
+                Toast.makeText(this, "Speed set to ${newSpeed}x", Toast.LENGTH_SHORT).show()
+                dialog.dismiss()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
     }
 
     override fun onDestroy() {

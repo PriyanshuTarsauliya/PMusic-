@@ -46,9 +46,6 @@ object PlaybackManager {
         }
     }
 
-    private var mediaPlayerStartTimeMs: Long = 0L
-    private var mediaPlayerSeekOffsetMs: Long = 0L
-
     var currentSong: Song? = null
         private set
 
@@ -89,26 +86,51 @@ object PlaybackManager {
     var playbackSpeed: Float = 1.0f
         private set
 
+    fun cyclePlaybackSpeed(): Float {
+        val speeds = floatArrayOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f)
+        val cur = playbackSpeed
+        var curIdx = speeds.indexOfFirst { kotlin.math.abs(it - cur) < 0.05f }
+        if (curIdx < 0) curIdx = 2
+        val nextIdx = (curIdx + 1) % speeds.size
+        val newSpeed = speeds[nextIdx]
+        setPlaybackSpeed(newSpeed)
+        return newSpeed
+    }
+
     fun setPlaybackSpeed(speed: Float) {
         playbackSpeed = speed
         if (activeEngine == Engine.MEDIA_PLAYER) {
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
-                try {
-                    val mp = mediaPlayer
-                    if (mp != null) {
-                        val params = mp.playbackParams
-                        mp.playbackParams = params.setSpeed(speed)
-                    }
-                } catch (e: Exception) {
-                    Log.w(TAG, "Failed to set media player speed: ${e.message}")
-                }
-            }
+            applySpeedToMediaPlayer(speed)
         } else if (activeEngine == Engine.YOUTUBE) {
-            webView?.post {
-                webView?.evaluateJavascript("if (window.ytPlayer && typeof window.ytPlayer.setPlaybackRate === 'function') { window.ytPlayer.setPlaybackRate(" + speed + "); }", null)
-            }
+            applySpeedToYouTube(speed)
         }
         listeners.forEach { it.onPlaybackSpeedChanged(speed) }
+    }
+
+    private fun applySpeedToYouTube(speed: Float) {
+        webView?.post {
+            webView?.evaluateJavascript(
+                "if (typeof setPlaybackSpeed === 'function') { setPlaybackSpeed($speed); } else if (window.player && typeof window.player.setPlaybackRate === 'function') { window.player.setPlaybackRate($speed); }",
+                null
+            )
+        }
+    }
+
+    private fun applySpeedToMediaPlayer(speed: Float) {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+            try {
+                val mp = mediaPlayer ?: return
+                val wasPlaying = mp.isPlaying
+                val params = mp.playbackParams
+                params.speed = speed
+                mp.playbackParams = params
+                if (!wasPlaying && mp.isPlaying) {
+                    mp.pause()
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to set media player speed: ${e.message}")
+            }
+        }
     }
 
     fun resume() {
@@ -154,19 +176,29 @@ object PlaybackManager {
     }
 
     // Progress runnable for MediaPlayer fallback (tracks 100% full song duration)
+    private var mediaPlayerProgressMs: Double = 0.0
+    private var mediaPlayerLastTickTime: Long = 0L
+
     private val progressRunnable = object : Runnable {
         override fun run() {
             if (activeEngine == Engine.MEDIA_PLAYER && isPlaying) {
                 val song = currentSong
                 if (song != null) {
+                    val now = System.currentTimeMillis()
+                    if (mediaPlayerLastTickTime > 0) {
+                        val delta = (now - mediaPlayerLastTickTime) * playbackSpeed
+                        mediaPlayerProgressMs += delta
+                    }
+                    mediaPlayerLastTickTime = now
+
                     val totalDuration = song.getDurationMs()
-                    val elapsed = (System.currentTimeMillis() - mediaPlayerStartTimeMs) + mediaPlayerSeekOffsetMs
-                    if (elapsed >= totalDuration) {
+                    val currentPos = mediaPlayerProgressMs.toInt()
+                    if (currentPos >= totalDuration) {
                         Log.d(TAG, "MediaPlayer reached full song duration: ${totalDuration}ms. Auto-advancing...")
                         playNext()
                         return
                     }
-                    listeners.forEach { it.onProgressUpdate(elapsed.toInt(), totalDuration) }
+                    listeners.forEach { it.onProgressUpdate(currentPos, totalDuration) }
                 }
             }
             if (isPlaying) {
@@ -283,6 +315,15 @@ object PlaybackManager {
                 var player = null;
                 var isReady = false;
                 var pendingVideoId = null;
+                var currentPlaybackRate = 1.0;
+
+                function setPlaybackSpeed(rate) {
+                  currentPlaybackRate = Number(rate) || 1.0;
+                  if (player && typeof player.setPlaybackRate === 'function') {
+                    try { player.setPlaybackRate(currentPlaybackRate); } catch(e){}
+                  }
+                }
+                window.setPlaybackSpeed = setPlaybackSpeed;
 
                 function onYouTubeIframeAPIReady() {
                   player = new YT.Player('player', {
@@ -300,6 +341,11 @@ object PlaybackManager {
                     events: {
                       onReady: function(e) {
                         isReady = true;
+                        window.player = player;
+                        window.ytPlayer = player;
+                        if (currentPlaybackRate !== 1.0 && typeof player.setPlaybackRate === 'function') {
+                          try { player.setPlaybackRate(currentPlaybackRate); } catch(e){}
+                        }
                         AndroidBridge.onPlayerReady();
                         if (pendingVideoId) {
                           loadAndPlay(pendingVideoId);
@@ -307,6 +353,9 @@ object PlaybackManager {
                         }
                       },
                       onStateChange: function(e) {
+                        if (e.data === 1 && currentPlaybackRate !== 1.0 && player && typeof player.setPlaybackRate === 'function') {
+                          try { player.setPlaybackRate(currentPlaybackRate); } catch(e){}
+                        }
                         AndroidBridge.onStateChange(e.data);
                       },
                       onError: function(e) {
@@ -333,6 +382,11 @@ object PlaybackManager {
                   }
                   player.loadVideoById(vId);
                   player.playVideo();
+                  if (currentPlaybackRate !== 1.0 && typeof player.setPlaybackRate === 'function') {
+                    setTimeout(function() {
+                      try { player.setPlaybackRate(currentPlaybackRate); } catch(e){}
+                    }, 120);
+                  }
                 }
 
                 function pauseVideo() {
@@ -423,6 +477,9 @@ object PlaybackManager {
         val cleanVideoId = videoId.replace(Regex("[^a-zA-Z0-9_-]"), "")
         webView?.post {
             webView?.evaluateJavascript("loadAndPlay('$cleanVideoId');", null)
+            if (playbackSpeed != 1.0f) {
+                applySpeedToYouTube(playbackSpeed)
+            }
         }
     }
 
@@ -455,8 +512,11 @@ object PlaybackManager {
                 setDataSource(song.audioUrl)
                 isLooping = true // Keep looping audio until complete song duration is finished
                 setOnPreparedListener { mp ->
-                    mediaPlayerStartTimeMs = System.currentTimeMillis()
-                    mediaPlayerSeekOffsetMs = 0L
+                    mediaPlayerProgressMs = 0.0
+                    mediaPlayerLastTickTime = System.currentTimeMillis()
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M && playbackSpeed != 1.0f) {
+                        applySpeedToMediaPlayer(playbackSpeed)
+                    }
                     mp.start()
                     this@PlaybackManager.isPlaying = true
                     listeners.forEach {
@@ -663,16 +723,16 @@ object PlaybackManager {
                 if (mp.isPlaying) {
                     mp.pause()
                     isPlaying = false
-                    mediaPlayerSeekOffsetMs += (System.currentTimeMillis() - mediaPlayerStartTimeMs)
+                    mediaPlayerLastTickTime = 0L
                     listeners.forEach { it.onPlaybackStateChanged(false) }
-                updateMediaNotification()
+                    updateMediaNotification()
                 } else {
-                    mediaPlayerStartTimeMs = System.currentTimeMillis()
+                    mediaPlayerLastTickTime = System.currentTimeMillis()
                     mp.start()
                     isPlaying = true
                     handler.post(progressRunnable)
                     listeners.forEach { it.onPlaybackStateChanged(true) }
-                updateMediaNotification()
+                    updateMediaNotification()
                 }
             } catch (e: Exception) {
                 currentSong?.let { playSong(it) }
@@ -722,8 +782,8 @@ object PlaybackManager {
                 webView?.evaluateJavascript("seekTo($sec);", null)
             }
         } else {
-            mediaPlayerSeekOffsetMs = positionMs.toLong()
-            mediaPlayerStartTimeMs = System.currentTimeMillis()
+            mediaPlayerProgressMs = positionMs.toDouble()
+            mediaPlayerLastTickTime = System.currentTimeMillis()
             mediaPlayer?.seekTo(positionMs % 30000)
         }
     }

@@ -40,6 +40,11 @@ class NowPlayingBottomSheet : BottomSheetDialogFragment(), PlaybackManager.Playb
     private var sleepTimerMode: String? = null // "end" or minutes
     private var sleepTimerRunnable: Runnable? = null
 
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setStyle(STYLE_NORMAL, R.style.SpotifyBottomSheetDialogTheme)
+    }
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -109,7 +114,13 @@ class NowPlayingBottomSheet : BottomSheetDialogFragment(), PlaybackManager.Playb
         updateSleepTimerUi()
 
         binding.btnNowPlayingSpeed.setOnClickListener {
+            val newSpeed = PlaybackManager.cyclePlaybackSpeed()
+            updateSpeedUi(newSpeed)
+            Toast.makeText(requireContext(), "Speed: ${newSpeed}x", Toast.LENGTH_SHORT).show()
+        }
+        binding.btnNowPlayingSpeed.setOnLongClickListener {
             showPlaybackSpeedDialog()
+            true
         }
         updateSpeedUi(PlaybackManager.playbackSpeed)
 
@@ -306,16 +317,25 @@ class NowPlayingBottomSheet : BottomSheetDialogFragment(), PlaybackManager.Playb
     }
 
     private fun updateSpeedUi(speed: Float) {
-        binding.btnNowPlayingSpeed.text = "${speed}x"
+        if (_binding == null) return
+        val isNormal = kotlin.math.abs(speed - 1.0f) < 0.05f
+        binding.btnNowPlayingSpeed.text = if (isNormal) "1.0x" else "${speed}x"
+        if (isNormal) {
+            binding.btnNowPlayingSpeed.setTextColor(ContextCompat.getColor(requireContext(), R.color.spotify_subdued))
+            binding.btnNowPlayingSpeed.setBackgroundResource(R.drawable.bg_speed_pill)
+        } else {
+            binding.btnNowPlayingSpeed.setTextColor(ContextCompat.getColor(requireContext(), R.color.black))
+            binding.btnNowPlayingSpeed.setBackgroundResource(R.drawable.bg_spotify_button_speed_active)
+        }
     }
 
     private fun showPlaybackSpeedDialog() {
         val speeds = arrayOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f)
-        val labels = arrayOf("0.5x", "0.75x", "1.0x (Normal)", "1.25x", "1.5x", "2.0x")
+        val labels = arrayOf("0.5x  (Slower)", "0.75x", "1.0x  (Normal)", "1.25x", "1.5x", "2.0x  (Faster)")
         val currentSpeed = PlaybackManager.playbackSpeed
-        val selectedIdx = speeds.indexOfFirst { it == currentSpeed }.coerceAtLeast(2)
+        val selectedIdx = speeds.indexOfFirst { kotlin.math.abs(it - currentSpeed) < 0.05f }.coerceAtLeast(2)
 
-        AlertDialog.Builder(requireContext(), androidx.appcompat.R.style.Theme_AppCompat_Dialog_Alert)
+        com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext(), R.style.SpotifyAlertDialogTheme)
             .setTitle("Playback Speed")
             .setSingleChoiceItems(labels, selectedIdx) { dialog, which ->
                 val newSpeed = speeds[which]
@@ -350,7 +370,7 @@ class NowPlayingBottomSheet : BottomSheetDialogFragment(), PlaybackManager.Playb
             items.add("$prefix${song.title} - ${song.artist}")
         }
 
-        AlertDialog.Builder(requireContext(), androidx.appcompat.R.style.Theme_AppCompat_Dialog_Alert)
+        com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext(), R.style.SpotifyAlertDialogTheme)
             .setTitle("Play Queue (${queue.size} songs)")
             .setItems(items.toTypedArray()) { _, which ->
                 val queueTargetIdx = if (current != null) which - 1 else which
@@ -382,7 +402,7 @@ class NowPlayingBottomSheet : BottomSheetDialogFragment(), PlaybackManager.Playb
             "End of this song"
         )
 
-        AlertDialog.Builder(requireContext(), androidx.appcompat.R.style.Theme_AppCompat_Dialog_Alert)
+        com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext(), R.style.SpotifyAlertDialogTheme)
             .setTitle("Sleep Timer")
             .setItems(options) { _, which ->
                 when (which) {

@@ -134,7 +134,12 @@ class MediaPlaybackService : Service() {
 
             ACTION_STOP -> {
                 if (wakeLock?.isHeld == true) wakeLock?.release()
-                stopForeground(true)
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+                    stopForeground(STOP_FOREGROUND_REMOVE)
+                } else {
+                    @Suppress("DEPRECATION")
+                    stopForeground(true)
+                }
                 stopSelf()
             }
         }
@@ -214,3 +219,4 @@ class MediaPlaybackService : Service() {
 
     override fun onBind(intent: Intent?): IBinder? = null
 }
+
