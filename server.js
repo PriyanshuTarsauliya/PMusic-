@@ -1659,7 +1659,9 @@ const server = http.createServer(async (req, res) => {
           : 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=400&auto=format&fit=crop&q=80';
 
         const newPl = {
-          id: 'user-pl-' + Date.now().toString(36) + '-' + Math.random().toString(36).substr(2, 5),
+          id: (body.id && typeof body.id === 'string' && body.id.trim())
+            ? body.id.trim().replace(/[<>]/g, '')
+            : ('user-pl-' + Date.now().toString(36) + '-' + Math.random().toString(36).substr(2, 5)),
           title: sanitizePl(body.title) || ('My Playlist #' + (playlists.length + 1)),
           description: sanitizePl(body.description, 300) || 'Created by user',
           artwork: safeArtwork,
