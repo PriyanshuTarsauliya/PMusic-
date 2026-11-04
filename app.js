@@ -6065,29 +6065,59 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function openSecurityModal() {
-    if (securityModalOverlay) securityModalOverlay.style.display = 'flex';
+    if (securityModalOverlay) {
+      securityModalOverlay.style.setProperty('display', 'flex', 'important');
+      securityModalOverlay.classList.add('active');
+    }
     updateSecurityTelemetry();
   }
 
-  function closeSecurityModal() {
-    if (securityModalOverlay) securityModalOverlay.style.display = 'none';
+  function closeSecurityModal(e) {
+    if (e) {
+      if (typeof e.preventDefault === 'function') e.preventDefault();
+      if (typeof e.stopPropagation === 'function') e.stopPropagation();
+    }
+    if (securityModalOverlay) {
+      securityModalOverlay.style.setProperty('display', 'none', 'important');
+      securityModalOverlay.classList.remove('active');
+    }
+    if (window.location.hash === '#security') {
+      if (window.history && window.history.replaceState) {
+        window.history.replaceState(null, '', window.location.pathname + window.location.search);
+      } else {
+        window.location.hash = '';
+      }
+    }
   }
 
-  if (btnSecurityDashboard) btnSecurityDashboard.addEventListener('click', openSecurityModal);
-  if (btnCloseSecurityModal) btnCloseSecurityModal.addEventListener('click', closeSecurityModal);
+  if (btnSecurityDashboard) {
+    btnSecurityDashboard.addEventListener('click', openSecurityModal);
+  }
+  if (btnCloseSecurityModal) {
+    btnCloseSecurityModal.addEventListener('click', closeSecurityModal);
+    btnCloseSecurityModal.addEventListener('touchstart', closeSecurityModal, { passive: true });
+  }
   if (securityModalOverlay) {
     securityModalOverlay.addEventListener('click', (e) => {
-      if (e.target === securityModalOverlay) closeSecurityModal();
+      if (e.target === securityModalOverlay) closeSecurityModal(e);
     });
   }
 
-  // Deep-link and URL query trigger support for Security Console
-  window.addEventListener('hashchange', () => {
-    if (window.location.hash === '#security') openSecurityModal();
+  // Keyboard accessibility: ESC key dismisses the security modal
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && securityModalOverlay && securityModalOverlay.style.display !== 'none') {
+      closeSecurityModal(e);
+    }
   });
-  if (window.location.hash === '#security' || new URLSearchParams(window.location.search).has('security')) {
-    setTimeout(openSecurityModal, 150);
+
+  // Ensure security modal NEVER opens automatically on website load:
+  // Clean up any historical #security URL hash so users never get surprised
+  if (window.location.hash === '#security') {
+    if (window.history && window.history.replaceState) {
+      window.history.replaceState(null, '', window.location.pathname + window.location.search);
+    }
   }
+  closeSecurityModal();
 
   if (btnRefreshTelemetry) {
     btnRefreshTelemetry.addEventListener('click', () => {
