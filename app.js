@@ -1678,6 +1678,9 @@ function onYtReady() {
 function onYtStateChange(event) {
   // YT.PlayerState: -1 (unstarted), 0 (ended), 1 (playing), 2 (paused), 3 (buffering), 5 (cued)
   if (event.data === YT.PlayerState.PLAYING) {
+    if (State.playbackSpeed && typeof ytPlayer.setPlaybackRate === 'function') {
+      try { ytPlayer.setPlaybackRate(State.playbackSpeed); } catch (_) {}
+    }
     State.activeEngine = 'youtube';
     const audio = document.getElementById('audio-engine');
     if (audio && !audio.paused) {
@@ -2311,6 +2314,36 @@ function updateAndroidMediaSession() {
   }
 }
 
+
+// =========================================================================
+// PLAYBACK SPEED CONTROLLER (0.5x, 0.75x, 1.0x, 1.25x, 1.5x, 2.0x)
+// =========================================================================
+const PLAYBACK_SPEEDS = [1.0, 1.25, 1.5, 2.0, 0.75];
+let currentSpeedIndex = 0;
+
+function setPlaybackSpeed(speed) {
+  State.playbackSpeed = speed;
+  if (window.ytPlayer && typeof window.ytPlayer.setPlaybackRate === 'function') {
+    try { window.ytPlayer.setPlaybackRate(speed); } catch (_) {}
+  }
+  const audio = document.getElementById('audio-engine');
+  if (audio) {
+    audio.playbackRate = speed;
+  }
+  const btn = document.getElementById('btn-playback-speed');
+  if (btn) {
+    btn.textContent = `${speed}x`;
+    btn.title = `Playback Speed: ${speed}x (Click to change)`;
+  }
+  syncMediaSessionPosition();
+  try { localStorage.setItem('pmusic_playback_speed', String(speed)); } catch (_) {}
+}
+
+function cyclePlaybackSpeed() {
+  currentSpeedIndex = (currentSpeedIndex + 1) % PLAYBACK_SPEEDS.length;
+  setPlaybackSpeed(PLAYBACK_SPEEDS[currentSpeedIndex]);
+}
+
 function syncMediaSessionPosition() {
   if (!('mediaSession' in navigator) || !('setPositionState' in navigator.mediaSession)) return;
   try {
@@ -2318,7 +2351,7 @@ function syncMediaSessionPosition() {
     if (prog && prog.duration > 0 && !isNaN(prog.current)) {
       navigator.mediaSession.setPositionState({
         duration: Math.max(1, prog.duration),
-        playbackRate: 1.0,
+        playbackRate: State.playbackSpeed || 1.0,
         position: Math.min(Math.max(0, prog.current), prog.duration)
       });
     }
@@ -4655,6 +4688,18 @@ document.addEventListener('DOMContentLoaded', () => {
         playNextTrack();
       }
     });
+  }
+
+  // Playback Speed Controller
+  const speedBtn = document.getElementById('btn-playback-speed');
+  if (speedBtn) {
+    speedBtn.addEventListener('click', cyclePlaybackSpeed);
+    const savedSpeed = parseFloat(localStorage.getItem('pmusic_playback_speed') || '1.0');
+    if (!isNaN(savedSpeed) && savedSpeed > 0) {
+      currentSpeedIndex = PLAYBACK_SPEEDS.indexOf(savedSpeed);
+      if (currentSpeedIndex === -1) currentSpeedIndex = 0;
+      setPlaybackSpeed(PLAYBACK_SPEEDS[currentSpeedIndex]);
+    }
   }
 
   // Toggle Mini-Video Player Dock (PiP)
