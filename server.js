@@ -6,6 +6,43 @@ const crypto = require('crypto');
 const zlib = require('zlib');
 const cluster = require('cluster');
 const os = require('os');
+
+// ==========================================================================
+// ENVIRONMENT CONFIGURATION (.env) LOADER
+// ==========================================================================
+(() => {
+  const envCandidates = [
+    path.join(__dirname, '.env'),
+    path.join(process.cwd(), '.env'),
+    path.join(__dirname, '../.env')
+  ];
+  for (const envPath of envCandidates) {
+    if (fs.existsSync(envPath)) {
+      try {
+        if (typeof process.loadEnvFile === 'function') {
+          process.loadEnvFile(envPath);
+        } else {
+          const lines = fs.readFileSync(envPath, 'utf8').split(/\r?\n/);
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed || trimmed.startsWith('#')) continue;
+            const eq = trimmed.indexOf('=');
+            if (eq > 0) {
+              const k = trimmed.slice(0, eq).trim();
+              let v = trimmed.slice(eq + 1).trim();
+              if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) {
+                v = v.slice(1, -1);
+              }
+              if (process.env[k] === undefined) process.env[k] = v;
+            }
+          }
+        }
+        break;
+      } catch (_) {}
+    }
+  }
+})();
+
 const ChallengeService = require('./auth/challengeService');
 const RiskScorer = require('./auth/riskScorer');
 const TokenManager = require('./auth/tokenManager');
@@ -449,20 +486,46 @@ function getSessionUser(token) {
   return null;
 }
 
+function formatUserProfile(user) {
+  if (!user) return null;
+  const username = user.username || user.id || 'User';
+  let playlistsCount = 0;
+  try {
+    const playlists = getSavedPlaylists();
+    const userKey = username.toLowerCase();
+    playlistsCount = playlists.filter(p => p && (
+      (p.ownerId && p.ownerId.toLowerCase() === userKey) ||
+      (p.curator && p.curator.toLowerCase() === userKey) ||
+      (user.displayName && p.curator && p.curator.toLowerCase() === user.displayName.toLowerCase())
+    )).length;
+  } catch (e) {
+    playlistsCount = 0;
+  }
+  const likedTracks = Array.isArray(user.likedTracks) ? user.likedTracks : (Array.isArray(user.library) ? user.library.map(t => t.id) : []);
+  return {
+    username: username,
+    displayName: user.displayName || username,
+    avatar: user.avatar || '',
+    accountType: user.accountType || 'SPOTIFY PREMIUM',
+    createdAt: user.createdAt || Date.now(),
+    likedSongsCount: likedTracks.length,
+    playlistsCount: playlistsCount,
+    library: user.library || [],
+    likedTracks: likedTracks
+  };
+}
+
 // ==========================================================================
 // LOAD BALANCER & REVERSE PROXY AWARE CLIENT IP RESOLUTION
 // Supports Cloudflare, AWS ALB, Render, Nginx, Docker, & Direct
 // ==========================================================================
 
 function isLoopbackIp(ip) {
-  if (!ip) return true;
+  if (!ip) return false;
   const clean = ip.replace(/^::ffff:/, '').trim().toLowerCase();
   return clean === '127.0.0.1' ||
          clean === '::1' ||
-         clean === 'localhost' ||
-         clean.startsWith('192.168.') ||
-         clean.startsWith('10.') ||
-         clean === 'unknown';
+         clean === 'localhost';
 }
 
 function getClientIp(req) {
@@ -503,7 +566,7 @@ setInterval(() => {
 
 function checkRateLimit(ip, bucket, maxRequests, windowMs) {
   // In development mode or on local/private loopback, exempt from rate limits to prevent dev lockout
-  if (process.env.NODE_ENV !== 'production' || isLoopbackIp(ip)) {
+  if (process.env.NODE_ENV !== 'production' && isLoopbackIp(ip)) {
     return {
       allowed: true,
       remaining: 9999,
@@ -888,85 +951,210 @@ async function fetchLyrics(track, artist) {
 // In-memory server search cache
 const serverSearchCache = new Map();
 
-// Server-side iTunes Search proxy with caching and format normalization
-async function proxySearch(term, limit = 50) {
-  const cacheKey = `${term.trim().toLowerCase()}_${limit}`;
+// High-speed YouTube Search scraper for full-length songs and Hindi/Regional tracks
+async function searchYouTube(query, limit = 25) {
+  const cacheKey = `yt_${query.trim().toLowerCase()}_${limit}`;
   if (serverSearchCache.has(cacheKey)) {
     return serverSearchCache.get(cacheKey);
   }
 
   try {
-    const itunesUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(term)}&media=music&entity=song,album,musicArtist&limit=${limit}`;
-    const res = await fetch(itunesUrl, {
+    const searchUrl = 'https://www.youtube.com/results?search_query=' + encodeURIComponent(query);
+    const res = await fetch(searchUrl, {
       headers: {
-        'User-Agent': 'PMusic-Server/1.0',
-        'Accept': 'application/json'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept-Language': 'hi,en-US;q=0.9,en;q=0.8',
+        'Cookie': 'CONSENT=YES+cb.20210328-17-p0.en+FX+478; SOCS=CAESEwgDEgk0ODEzNzg5MjQaAmVuIAEaBgiA_LyaBg'
       }
     });
-
-    if (res.ok) {
-      const data = await res.json();
-      const tracks = [];
-      const artists = [];
-      const albums = [];
-
-      (data.results || []).forEach(item => {
-        if (item.wrapperType === 'track') {
-          const totalSec = Math.round((item.trackTimeMillis || 180000) / 1000);
-          const mins = Math.floor(totalSec / 60);
-          const secs = String(totalSec % 60).padStart(2, '0');
-          tracks.push({
-            id: `track-${item.trackId}`,
-            name: item.trackName,
-            artist: item.artistName,
-            album: item.collectionName || 'Single',
-            albumYear: (item.releaseDate || '').substring(0, 4),
-            duration: totalSec,
-            durationFormatted: `${mins}:${secs}`,
-            artwork: (item.artworkUrl100 || '').replace('100x100bb', '400x400bb'),
-            previewUrl: item.previewUrl,
-            youtubeId: null,
-            type: 'track'
-          });
-        } else if (item.wrapperType === 'artist') {
-          artists.push({
-            id: `artist-${item.artistId}`,
-            name: item.artistName,
-            genre: item.primaryGenreName || 'Artist',
-            followers: 'Verified Artist',
-            image: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=300&auto=format&fit=crop&q=80',
-            type: 'artist'
-          });
-        } else if (item.wrapperType === 'collection') {
-          albums.push({
-            id: `album-${item.collectionId}`,
-            title: item.collectionName,
-            artist: item.artistName,
-            year: (item.releaseDate || '').substring(0, 4),
-            artwork: (item.artworkUrl100 || '').replace('100x100bb', '400x400bb'),
-            trackCount: item.trackCount || 10,
-            type: 'album'
-          });
+    const html = await res.text();
+    const tracks = [];
+    const m = html.match(/ytInitialData\s*=\s*({.+?});<\/script>/);
+    if (m) {
+      try {
+        const data = JSON.parse(m[1]);
+        const contents = data.contents?.twoColumnSearchResultsRenderer?.primaryContents?.sectionListRenderer?.contents;
+        const items = contents?.[0]?.itemSectionRenderer?.contents || [];
+        for (const item of items) {
+          const v = item.videoRenderer;
+          if (v && v.videoId) {
+            const title = v.title?.runs?.map(r => r.text).join('') || v.title?.simpleText || 'Unknown Song';
+            const channel = v.ownerText?.runs?.map(r => r.text).join('') || 'YouTube Music';
+            const lengthStr = v.lengthText?.simpleText || '3:30';
+            const parts = lengthStr.split(':').map(Number);
+            let totalSec = 210;
+            if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+              totalSec = parts[0] * 60 + parts[1];
+            } else if (parts.length === 3 && !isNaN(parts[0]) && !isNaN(parts[1]) && !isNaN(parts[2])) {
+              totalSec = parts[0] * 3600 + parts[1] * 60 + parts[2];
+            }
+            const thumb = v.thumbnail?.thumbnails?.slice(-1)[0]?.url || `https://i.ytimg.com/vi/${v.videoId}/hqdefault.jpg`;
+            tracks.push({
+              id: `yt-${v.videoId}`,
+              name: title,
+              artist: channel,
+              album: 'YouTube Music',
+              albumYear: new Date().getFullYear().toString(),
+              duration: totalSec,
+              durationFormatted: lengthStr,
+              artwork: thumb,
+              previewUrl: '',
+              youtubeId: v.videoId,
+              type: 'track',
+              source: 'youtube'
+            });
+            if (tracks.length >= limit) break;
+          }
         }
-      });
-
-      const responseData = {
-        success: true,
-        query: term,
-        total: tracks.length + artists.length + albums.length,
-        tracks,
-        artists,
-        albums
-      };
-
-      serverSearchCache.set(cacheKey, responseData);
-      return responseData;
+      } catch (e) {
+        console.error('YouTube initialData parse error:', e.message);
+      }
     }
+
+    if (tracks.length === 0) {
+      const videoIds = [...new Set([...html.matchAll(/\/watch\?v=([a-zA-Z0-9_-]{11})/g)].map(x => x[1]))];
+      for (const vid of videoIds.slice(0, limit)) {
+        tracks.push({
+          id: `yt-${vid}`,
+          name: query,
+          artist: 'YouTube Music',
+          album: 'YouTube Music',
+          albumYear: new Date().getFullYear().toString(),
+          duration: 210,
+          durationFormatted: '3:30',
+          artwork: `https://i.ytimg.com/vi/${vid}/hqdefault.jpg`,
+          previewUrl: '',
+          youtubeId: vid,
+          type: 'track',
+          source: 'youtube'
+        });
+      }
+    }
+
+    serverSearchCache.set(cacheKey, tracks);
+    return tracks;
   } catch (err) {
-    console.error('Error in proxySearch:', err.message);
+    console.error('searchYouTube error:', err.message);
+    return [];
+  }
+}
+
+// Server-side Multi-Source Search (YouTube + iTunes) with Hindi language optimization
+async function proxySearch(term, limit = 50, source = 'auto') {
+  const cacheKey = `${term.trim().toLowerCase()}_${limit}_${source}`;
+  if (serverSearchCache.has(cacheKey)) {
+    return serverSearchCache.get(cacheKey);
   }
 
-  return { success: false, query: term, tracks: [], artists: [], albums: [] };
+  const isHindi = /[\u0900-\u097F]/.test(term);
+  const tasks = [];
+
+  // 1. YouTube Search
+  tasks.push(searchYouTube(term, limit).catch(err => {
+    console.error('YouTube search error:', err.message);
+    return [];
+  }));
+
+  // 2. iTunes Search (unless source explicitly set to youtube only)
+  if (source !== 'youtube') {
+    tasks.push((async () => {
+      try {
+        const itunesUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(term)}&media=music&entity=song,album,musicArtist&limit=${limit}`;
+        const res = await fetch(itunesUrl, {
+          headers: {
+            'User-Agent': 'PMusic-Server/1.0',
+            'Accept': 'application/json'
+          }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const tracks = [];
+          const artists = [];
+          const albums = [];
+
+          (data.results || []).forEach(item => {
+            if (item.wrapperType === 'track') {
+              const totalSec = Math.round((item.trackTimeMillis || 180000) / 1000);
+              const mins = Math.floor(totalSec / 60);
+              const secs = String(totalSec % 60).padStart(2, '0');
+              tracks.push({
+                id: `track-${item.trackId}`,
+                name: item.trackName,
+                artist: item.artistName,
+                album: item.collectionName || 'Single',
+                albumYear: (item.releaseDate || '').substring(0, 4),
+                duration: totalSec,
+                durationFormatted: `${mins}:${secs}`,
+                artwork: (item.artworkUrl100 || '').replace('100x100bb', '400x400bb'),
+                previewUrl: item.previewUrl,
+                youtubeId: null,
+                type: 'track'
+              });
+            } else if (item.wrapperType === 'artist') {
+              artists.push({
+                id: `artist-${item.artistId}`,
+                name: item.artistName,
+                genre: item.primaryGenreName || 'Artist',
+                followers: 'Verified Artist',
+                image: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=300&auto=format&fit=crop&q=80',
+                type: 'artist'
+              });
+            } else if (item.wrapperType === 'collection') {
+              albums.push({
+                id: `album-${item.collectionId}`,
+                title: item.collectionName,
+                artist: item.artistName,
+                year: (item.releaseDate || '').substring(0, 4),
+                artwork: (item.artworkUrl100 || '').replace('100x100bb', '400x400bb'),
+                type: 'album'
+              });
+            }
+          });
+          return { tracks, artists, albums };
+        }
+      } catch (err) {
+        console.error('iTunes proxy error:', err.message);
+      }
+      return { tracks: [], artists: [], albums: [] };
+    })());
+  }
+
+  const [ytTracksResult, itunesResult] = await Promise.all(tasks);
+  const ytTracks = Array.isArray(ytTracksResult) ? ytTracksResult : [];
+  const itunes = itunesResult || { tracks: [], artists: [], albums: [] };
+
+  let combinedTracks = [];
+  if (isHindi || source === 'youtube') {
+    // Hindi queries or YouTube requests: prioritize YouTube songs at top
+    combinedTracks = [...ytTracks, ...itunes.tracks];
+  } else {
+    // General queries: interleave top YouTube songs with iTunes results
+    combinedTracks = [...ytTracks.slice(0, 6), ...itunes.tracks, ...ytTracks.slice(6)];
+  }
+
+  // De-duplicate tracks by youtubeId or title/artist
+  const seenIds = new Set();
+  const uniqueTracks = [];
+  for (const t of combinedTracks) {
+    const key = t.youtubeId ? `yt-${t.youtubeId}` : `t-${(t.name || '').toLowerCase()}-${(t.artist || '').toLowerCase()}`;
+    if (!seenIds.has(key)) {
+      seenIds.add(key);
+      uniqueTracks.push(t);
+    }
+  }
+
+  const result = {
+    success: true,
+    query: term,
+    total: uniqueTracks.length + (itunes.artists || []).length + (itunes.albums || []).length,
+    tracks: uniqueTracks.slice(0, limit),
+    artists: itunes.artists || [],
+    albums: itunes.albums || [],
+    playlists: []
+  };
+
+  serverSearchCache.set(cacheKey, result);
+  return result;
 }
 
 const server = http.createServer(async (req, res) => {
@@ -978,7 +1166,8 @@ const server = http.createServer(async (req, res) => {
   res.setHeader('X-Frame-Options', 'SAMEORIGIN');
   res.setHeader('X-XSS-Protection', '1; mode=block');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
-  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(self), geolocation=()');
+  res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline' https://www.youtube.com https://s.ytimg.com; frame-src https://www.youtube.com https://www.youtube-nocookie.com; img-src 'self' data: https:; media-src 'self' https: blob:; connect-src 'self' https:;");
 
   // CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -1029,8 +1218,13 @@ const server = http.createServer(async (req, res) => {
       }
 
       const { hash, salt } = hashPassword(password);
+      const displayName = (payload.displayName || username).trim();
+      const avatar = (payload.avatar || '').trim();
       db[userKey] = {
         username,
+        displayName,
+        avatar,
+        accountType: 'SPOTIFY PREMIUM',
         passwordHash: hash,
         salt,
         createdAt: Date.now(),
@@ -1046,9 +1240,12 @@ const server = http.createServer(async (req, res) => {
         token,
         user: {
           username: db[userKey].username,
+          displayName: db[userKey].displayName,
+          avatar: db[userKey].avatar,
           library: db[userKey].library,
           likedTracks: db[userKey].likedTracks
-        }
+        },
+        profile: formatUserProfile(db[userKey])
       }));
     } catch (err) {
       res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -1089,9 +1286,12 @@ const server = http.createServer(async (req, res) => {
         token,
         user: {
           username: user.username,
+          displayName: user.displayName || user.username,
+          avatar: user.avatar || '',
           library: user.library || [],
           likedTracks: user.likedTracks || []
-        }
+        },
+        profile: formatUserProfile(user)
       }));
     } catch (err) {
       res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -1113,9 +1313,12 @@ const server = http.createServer(async (req, res) => {
     res.end(JSON.stringify({
       user: {
         username: user.username,
+        displayName: user.displayName || user.username,
+        avatar: user.avatar || '',
         library: user.library || [],
         likedTracks: user.likedTracks || []
-      }
+      },
+      profile: formatUserProfile(user)
     }));
     return;
   }
@@ -1255,9 +1458,12 @@ const server = http.createServer(async (req, res) => {
         success: true,
         user: {
           username: user.username,
+          displayName: user.displayName || user.username,
+          avatar: user.avatar || '',
           library: user.library || [],
           likedTracks: user.likedTracks || []
         },
+        profile: formatUserProfile(user),
         tokens: {
           accessToken: accessSession.accessToken,
           expiresAt: accessSession.expiresAt,
@@ -1482,8 +1688,71 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // API Route: Get user profile
+  if ((pathname === '/api/user/profile' || pathname === '/api/profile') && req.method === 'GET') {
+    const token = extractToken(req, parsedUrl);
+    const user = getSessionUser(token);
+    if (!user) {
+      res.writeHead(401, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Authentication required' }));
+      return;
+    }
+    const profile = formatUserProfile(user);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: true, profile }));
+    return;
+  }
+
+  // API Route: Update user profile (display name, avatar)
+  if ((pathname === '/api/user/profile' || pathname === '/api/profile') && (req.method === 'POST' || req.method === 'PUT')) {
+    try {
+      const payload = await readJsonBody(req);
+      const token = extractToken(req, parsedUrl) || payload.token;
+      const user = getSessionUser(token);
+      if (!user) {
+        res.writeHead(401, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Authentication required' }));
+        return;
+      }
+
+      const db = getUsersDb();
+      const userKey = (user.username || user.id || '').toLowerCase();
+      if (!db[userKey]) {
+        db[userKey] = {
+          username: user.username,
+          displayName: user.username,
+          avatar: '',
+          accountType: 'SPOTIFY PREMIUM',
+          createdAt: Date.now(),
+          library: user.library || [],
+          likedTracks: user.likedTracks || []
+        };
+      }
+
+      if (payload.displayName !== undefined) {
+        const dName = String(payload.displayName).trim().slice(0, 50);
+        if (dName) {
+          db[userKey].displayName = dName;
+        }
+      }
+      if (payload.avatar !== undefined) {
+        db[userKey].avatar = String(payload.avatar).trim().slice(0, 500);
+      }
+      db[userKey].updatedAt = Date.now();
+      saveUsersDb(db);
+
+      const profile = formatUserProfile(db[userKey]);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, profile }));
+    } catch (err) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Failed to update profile: ' + err.message }));
+    }
+    return;
+  }
+
   // Cloud Health Checks & Monitoring (Render Ready)
-  if (pathname === '/healthz' || pathname === '/api/health') {
+  if (pathname === '/health' || pathname === '/healthz' || pathname === '/api/health') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({
       status: 'ok',
@@ -1557,19 +1826,35 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // API Route: Live Search Proxy (iTunes / Apple Music + Caching)
+  // API Route: Live Multi-Source Search (YouTube + iTunes + Hindi Engine)
   if (pathname === '/api/search') {
     const q = (parsedUrl.query.q || parsedUrl.query.term || '').trim();
     const limit = Math.min(Math.max(Number(parsedUrl.query.limit) || 50, 1), 100);
+    const source = (parsedUrl.query.source || 'auto').trim().toLowerCase();
     if (!q) {
       res.writeHead(400, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: 'Missing search query parameter q or term' }));
       return;
     }
 
-    const result = await proxySearch(q, limit);
+    const result = await proxySearch(q, limit, source);
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(result));
+    return;
+  }
+
+  // API Route: Dedicated Direct YouTube Song Search
+  if (pathname === '/api/youtube/search') {
+    const q = (parsedUrl.query.q || parsedUrl.query.term || '').trim();
+    const limit = Math.min(Math.max(Number(parsedUrl.query.limit) || 20, 1), 50);
+    if (!q) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Missing search query parameter q or term' }));
+      return;
+    }
+    const tracks = await searchYouTube(q, limit);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ tracks, count: tracks.length, query: q }));
     return;
   }
 

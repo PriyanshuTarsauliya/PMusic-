@@ -280,7 +280,7 @@ html, body {
 .search-input-field {
   width: 100%;
   height: 44px;
-  padding: 0 44px 0 44px;
+  padding: 0 76px 0 44px;
   background-color: var(--spotify-surface);
   border: 2px solid transparent;
   border-radius: 500px;
@@ -320,18 +320,19 @@ html, body {
 
 .search-clear-btn {
   position: absolute;
-  right: 12px;
+  right: 40px;
   background: none;
   border: none;
   color: var(--spotify-subdued);
   cursor: pointer;
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   display: none;
   align-items: center;
   justify-content: center;
   border-radius: 50%;
   transition: color var(--transition-fast);
+  z-index: 2;
 }
 
 .search-clear-btn:hover {
@@ -342,9 +343,52 @@ html, body {
   display: flex;
 }
 
+.search-mic-btn {
+  position: absolute;
+  right: 12px;
+  background: none;
+  border: none;
+  color: var(--spotify-subdued);
+  cursor: pointer;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all var(--transition-fast);
+  z-index: 2;
+}
+
+.search-mic-btn:hover {
+  color: var(--spotify-white);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.search-mic-btn.listening {
+  color: #ff334b;
+  background: rgba(255, 51, 75, 0.2);
+  animation: pulse-mic 1.2s infinite;
+}
+
+@keyframes pulse-mic {
+  0% {
+    box-shadow: 0 0 0 0 rgba(255, 51, 75, 0.6);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(255, 51, 75, 0);
+    transform: scale(1.1);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 51, 75, 0);
+    transform: scale(1);
+  }
+}
+
 .search-keyboard-hint {
   position: absolute;
-  right: 14px;
+  right: 44px;
   font-size: 0.72rem;
   font-weight: 700;
   padding: 2px 6px;
@@ -4355,3 +4399,37 @@ html, body {
 }
 
 
+
+.user-avatar-pill.guest {
+  background: #282828;
+  color: var(--spotify-subdued);
+  border: 1.5px solid rgba(255, 255, 255, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
+}
+
+.user-avatar-pill.guest:hover {
+  transform: scale(1.08);
+  border-color: rgba(255, 255, 255, 0.4);
+  color: var(--spotify-white);
+  background: #333333;
+}
+
+.profile-avatar-large {
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #2E77D0, #1E3264);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  font-weight: 800;
+  margin: 0 auto;
+  border: 3px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}

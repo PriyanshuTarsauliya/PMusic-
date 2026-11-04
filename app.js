@@ -573,6 +573,7 @@ function saveUserLibrary(tracks, syncServer = true) {
 // Update authentication UI elements throughout header and sidebar
 function updateAuthUI() {
   const headerLoginBtn = document.getElementById('btn-header-login');
+  const headerGuestProfileBtn = document.getElementById('btn-header-profile-guest');
   const userProfileWrapper = document.getElementById('user-profile-wrapper');
   const userAvatarInitial = document.getElementById('user-avatar-initial');
   const userDropdownUsername = document.getElementById('user-dropdown-username');
@@ -584,29 +585,130 @@ function updateAuthUI() {
 
   if (State.currentUser && State.authToken) {
     const username = State.currentUser.username || 'User';
-    const initial = (username[0] || 'U').toUpperCase();
+    const displayName = State.currentUser.displayName || username;
+    const initial = (displayName[0] || username[0] || 'U').toUpperCase();
 
     if (headerLoginBtn) headerLoginBtn.style.display = 'none';
+    if (headerGuestProfileBtn) headerGuestProfileBtn.style.display = 'none';
     if (userProfileWrapper) userProfileWrapper.style.display = 'block';
     if (userAvatarInitial) userAvatarInitial.textContent = initial;
-    if (userDropdownUsername) userDropdownUsername.textContent = username;
+    if (userDropdownUsername) userDropdownUsername.textContent = displayName;
 
     if (sidebarUserCard) sidebarUserCard.classList.add('logged-in');
     if (sidebarUserAvatar) sidebarUserAvatar.textContent = initial;
-    if (sidebarUserName) sidebarUserName.textContent = username;
+    if (sidebarUserName) sidebarUserName.textContent = displayName;
     if (sidebarUserStatus) sidebarUserStatus.textContent = '● Synced in Cloud Database';
-    if (btnSidebarAuth) btnSidebarAuth.textContent = 'Account';
+    if (btnSidebarAuth) btnSidebarAuth.textContent = 'Profile';
   } else {
     if (headerLoginBtn) headerLoginBtn.style.display = 'block';
+    if (headerGuestProfileBtn) headerGuestProfileBtn.style.display = 'flex';
     if (userProfileWrapper) userProfileWrapper.style.display = 'none';
     const popover = document.getElementById('user-dropdown-popover');
     if (popover) popover.style.display = 'none';
 
     if (sidebarUserCard) sidebarUserCard.classList.remove('logged-in');
-    if (sidebarUserAvatar) sidebarUserAvatar.textContent = '?';
+    if (sidebarUserAvatar) {
+      sidebarUserAvatar.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>';
+    }
     if (sidebarUserName) sidebarUserName.textContent = 'Guest Mode';
     if (sidebarUserStatus) sidebarUserStatus.textContent = 'Log in to save songs anywhere';
     if (btnSidebarAuth) btnSidebarAuth.textContent = 'Log In';
+  }
+}
+
+function openProfileModal() {
+  const overlay = document.getElementById('profile-modal-overlay');
+  const user = State.currentUser;
+  if (!user || !State.authToken) {
+    openAuthModal('login');
+    return;
+  }
+  const username = user.username || 'User';
+  const displayName = user.displayName || username;
+  const initial = (displayName[0] || username[0] || 'U').toUpperCase();
+
+  const nameEl = document.getElementById('profile-modal-name');
+  const handleEl = document.getElementById('profile-modal-handle');
+  const initialEl = document.getElementById('profile-modal-initial-lg');
+  const inputEl = document.getElementById('profile-edit-displayname');
+  const likedCountEl = document.getElementById('profile-modal-liked-count');
+  const plCountEl = document.getElementById('profile-modal-playlists-count');
+
+  if (nameEl) nameEl.textContent = displayName;
+  if (handleEl) handleEl.textContent = '@' + username;
+  if (initialEl) initialEl.textContent = initial;
+  if (inputEl) inputEl.value = displayName;
+  if (likedCountEl) likedCountEl.textContent = String(State.likedSongs ? State.likedSongs.size : 0);
+  if (plCountEl) plCountEl.textContent = String(State.customPlaylists ? State.customPlaylists.length : 0);
+
+  // Fetch updated stats from backend
+  if (State.authToken) {
+    fetch('/api/user/profile', {
+      headers: { 'Authorization': 'Bearer ' + State.authToken }
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data && data.profile) {
+        if (likedCountEl && typeof data.profile.likedSongsCount === 'number') {
+          likedCountEl.textContent = String(data.profile.likedSongsCount);
+        }
+        if (plCountEl && typeof data.profile.playlistsCount === 'number') {
+          plCountEl.textContent = String(data.profile.playlistsCount);
+        }
+        if (data.profile.displayName) {
+          State.currentUser.displayName = data.profile.displayName;
+          if (nameEl) nameEl.textContent = data.profile.displayName;
+          if (inputEl) inputEl.value = data.profile.displayName;
+          updateAuthUI();
+        }
+      }
+    })
+    .catch(() => {});
+  }
+
+  if (overlay) overlay.style.display = 'flex';
+}
+
+function closeProfileModal() {
+  const overlay = document.getElementById('profile-modal-overlay');
+  if (overlay) overlay.style.display = 'none';
+}
+
+async function handleSaveProfileName() {
+  const input = document.getElementById('profile-edit-displayname');
+  const newName = (input ? input.value : '').trim();
+  if (!newName) {
+    showBannerToast('Please enter a valid display name');
+    return;
+  }
+  if (!State.authToken) {
+    showBannerToast('Authentication required');
+    return;
+  }
+
+  showBannerToast('Saving profile to database...');
+  try {
+    const res = await fetch('/api/user/profile', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + State.authToken
+      },
+      body: JSON.stringify({ displayName: newName })
+    });
+    const json = await res.json();
+    if (json.success && json.profile) {
+      State.currentUser.displayName = json.profile.displayName;
+      updateAuthUI();
+      const nameEl = document.getElementById('profile-modal-name');
+      if (nameEl) nameEl.textContent = json.profile.displayName;
+      showBannerToast('Profile updated successfully!');
+      closeProfileModal();
+    } else {
+      showBannerToast(json.error || 'Failed to update profile');
+    }
+  } catch (err) {
+    showBannerToast('Network error while updating profile');
   }
 }
 
@@ -1498,7 +1600,7 @@ function logUbiEvent(action, destinationOrParam) {
   const queryDisplay = document.getElementById('evidence-active-query');
   if (queryDisplay) {
     const op = State.activeCategory === 'all' ? 'searchDesktop' : `search${capitalize(State.activeCategory)}`;
-    queryDisplay.innerHTML = `operation: ${op}
+    queryDisplay.textContent = `operation: ${op}
 persistedQueryHash: eef7cc54888d91bdd6802623477873caa3948ae173a0c34fd86827b267e94c03
 searchTerm: "${State.query}"
 category: "${State.activeCategory}"
@@ -2457,58 +2559,72 @@ async function executeSearch(query) {
   let playlists = [];
 
   if (State.useLiveSearch) {
+    const isHindiQuery = /[\u0900-\u097F]/.test(query);
+    const sourceParam = State.activeCategory === 'youtube' ? 'youtube' : 'auto';
+
+    // 1. Primary: PMusic backend multi-source search (YouTube Music + iTunes + Hindi Devanagari detection)
     try {
-      const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=music&entity=song,album,musicArtist&limit=100`);
-      if (res.ok) {
-        const data = await res.json();
-        (data.results || []).forEach(item => {
-          if (item.wrapperType === 'track') {
-            tracks.push({
-              id: `track-${item.trackId}`,
-              name: item.trackName,
-              artist: item.artistName,
-              album: item.collectionName || 'Single',
-              albumYear: (item.releaseDate || '').substring(0, 4),
-              duration: Math.round(item.trackTimeMillis / 1000) || 180,
-              durationFormatted: formatDuration(Math.round(item.trackTimeMillis / 1000) || 180),
-              artwork: (item.artworkUrl100 || '').replace('100x100bb', '400x400bb'),
-              previewUrl: item.previewUrl,
-              youtubeId: null,
-              type: 'track'
-            });
-          } else if (item.wrapperType === 'artist') {
-            artists.push({
-              id: `artist-${item.artistId}`,
-              name: item.artistName,
-              genre: item.primaryGenreName || 'Artist',
-              followers: 'Verified Artist',
-              image: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=300&auto=format&fit=crop&q=80',
-              type: 'artist'
-            });
-          } else if (item.wrapperType === 'collection') {
-            albums.push({
-              id: `album-${item.collectionId}`,
-              title: item.collectionName,
-              artist: item.artistName,
-              year: (item.releaseDate || '').substring(0, 4),
-              artwork: (item.artworkUrl100 || '').replace('100x100bb', '400x400bb'),
-              type: 'album'
-            });
-          }
-        });
-      }
-    } catch (err) {
-      console.warn('Direct Apple search failed, falling back to PMusic server proxy:', err);
-      try {
-        const serverRes = await fetch(`/api/search?q=${encodeURIComponent(query)}&limit=50`);
-        if (serverRes.ok) {
-          const sData = await serverRes.json();
-          if (Array.isArray(sData.tracks)) tracks.push(...sData.tracks);
-          if (Array.isArray(sData.artists)) artists.push(...sData.artists);
-          if (Array.isArray(sData.albums)) albums.push(...sData.albums);
+      const serverRes = await fetch(`/api/search?q=${encodeURIComponent(query)}&source=${sourceParam}&limit=50`);
+      if (serverRes.ok) {
+        const sData = await serverRes.json();
+        if (Array.isArray(sData.tracks) && sData.tracks.length > 0) {
+          tracks.push(...sData.tracks);
         }
-      } catch (sErr) {
-        console.warn('Server proxy search error:', sErr);
+        if (Array.isArray(sData.artists) && sData.artists.length > 0) {
+          artists.push(...sData.artists);
+        }
+        if (Array.isArray(sData.albums) && sData.albums.length > 0) {
+          albums.push(...sData.albums);
+        }
+      }
+    } catch (sErr) {
+      console.warn('PMusic server proxy search error, attempting direct iTunes fallback:', sErr);
+    }
+
+    // 2. Direct Apple iTunes fallback if server is offline or returned no tracks (and query is not Devanagari)
+    if (tracks.length === 0 && !isHindiQuery) {
+      try {
+        const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=music&entity=song,album,musicArtist&limit=60`);
+        if (res.ok) {
+          const data = await res.json();
+          (data.results || []).forEach(item => {
+            if (item.wrapperType === 'track') {
+              tracks.push({
+                id: `track-${item.trackId}`,
+                name: item.trackName,
+                artist: item.artistName,
+                album: item.collectionName || 'Single',
+                albumYear: (item.releaseDate || '').substring(0, 4),
+                duration: Math.round(item.trackTimeMillis / 1000) || 180,
+                durationFormatted: formatDuration(Math.round(item.trackTimeMillis / 1000) || 180),
+                artwork: (item.artworkUrl100 || '').replace('100x100bb', '400x400bb'),
+                previewUrl: item.previewUrl,
+                youtubeId: null,
+                type: 'track'
+              });
+            } else if (item.wrapperType === 'artist') {
+              artists.push({
+                id: `artist-${item.artistId}`,
+                name: item.artistName,
+                genre: item.primaryGenreName || 'Artist',
+                followers: 'Verified Artist',
+                image: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=300&auto=format&fit=crop&q=80',
+                type: 'artist'
+              });
+            } else if (item.wrapperType === 'collection') {
+              albums.push({
+                id: `album-${item.collectionId}`,
+                title: item.collectionName,
+                artist: item.artistName,
+                year: (item.releaseDate || '').substring(0, 4),
+                artwork: (item.artworkUrl100 || '').replace('100x100bb', '400x400bb'),
+                type: 'album'
+              });
+            }
+          });
+        }
+      } catch (err) {
+        console.warn('Direct Apple search failed:', err);
       }
     }
   }
@@ -4104,9 +4220,23 @@ function renderDrilldownResults(category) {
   container.innerHTML = '';
   const { tracks, artists, albums, playlists } = State.currentSearchResults;
 
-  if (category === 'tracks') {
-    const listToRender = tracks.length > 0 ? tracks : CURATED_TRACKS;
-    titleElem.textContent = `Songs (${listToRender.length})`;
+  if (category === 'tracks' || category === 'youtube' || category === 'hindi') {
+    let listToRender = tracks.length > 0 ? tracks : CURATED_TRACKS;
+    if (category === 'youtube') {
+      const ytList = tracks.filter(t => t.youtubeId);
+      listToRender = ytList.length > 0 ? ytList : listToRender;
+      titleElem.textContent = `▶️ YouTube Music (${listToRender.length})`;
+    } else if (category === 'hindi') {
+      const hindiList = tracks.filter(t => {
+        const combined = `${t.name} ${t.artist} ${t.album || ''}`.toLowerCase();
+        return /[\u0900-\u097F]/.test(combined) || 
+          /hindi|bollywood|arijit|shreya|atif|neha|jubin|badshah|sonu|kumarsanu|udit|kishore|lata|sidhu|punjabi|mohit/i.test(combined);
+      });
+      listToRender = hindiList.length > 0 ? hindiList : listToRender;
+      titleElem.textContent = `🇮🇳 Hindi & Bollywood Songs (${listToRender.length})`;
+    } else {
+      titleElem.textContent = `Songs (${listToRender.length})`;
+    }
     const table = document.createElement('table');
     table.className = 'full-tracklist-table';
     table.innerHTML = `
@@ -4295,6 +4425,24 @@ function setCategoryFilter(category) {
     btn.classList.toggle('active', btn.dataset.category === category);
   });
 
+  if (category === 'youtube' && (!State.query || State.query.trim() === '')) {
+    const input = document.getElementById('search-input');
+    if (input) {
+      input.value = 'Trending Music Hits';
+      State.query = 'Trending Music Hits';
+      executeSearch('Trending Music Hits');
+      return;
+    }
+  } else if (category === 'hindi' && (!State.query || State.query.trim() === '')) {
+    const input = document.getElementById('search-input');
+    if (input) {
+      input.value = 'Bollywood Hindi Hits';
+      State.query = 'Bollywood Hindi Hits';
+      executeSearch('Bollywood Hindi Hits');
+      return;
+    }
+  }
+
   if (category === 'all') {
     renderOverviewResults();
     switchView('results');
@@ -4320,9 +4468,98 @@ function toggleLikeTrack(trackId) {
 // 6. INITIALIZATION & UI CONTROLS
 // ==========================================================================
 
+function initVoiceSearch() {
+  const micBtn = document.getElementById('btn-search-mic');
+  const searchInput = document.getElementById('search-input');
+  if (!micBtn || !searchInput) return;
+
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) {
+    micBtn.title = "Voice search not supported in this browser";
+    micBtn.addEventListener('click', () => {
+      alert("Voice Search (Web Speech API) is not supported in this browser. Please use Google Chrome or Microsoft Edge, or voice search in the Android app!");
+    });
+    return;
+  }
+
+  let recognition = null;
+  let isListening = false;
+
+  try {
+    recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    recognition.lang = 'hi-IN'; // Recognizes both Hindi (Devanagari) & English seamlessly
+  } catch (err) {
+    console.warn("SpeechRecognition initialization failed:", err);
+    return;
+  }
+
+  recognition.onstart = () => {
+    isListening = true;
+    micBtn.classList.add('listening');
+    micBtn.setAttribute('title', 'Listening... speak Hindi or English');
+    searchInput.placeholder = '🎤 Listening... बोलिए (Speak now)';
+  };
+
+  recognition.onresult = (event) => {
+    let transcript = '';
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      transcript += event.results[i][0].transcript;
+    }
+    if (transcript.trim()) {
+      searchInput.value = transcript;
+      const clearBtn = document.getElementById('search-clear-btn');
+      if (clearBtn) clearBtn.classList.add('visible');
+      const hint = document.getElementById('search-shortcut-hint');
+      if (hint) hint.style.display = 'none';
+
+      if (event.results[0].isFinal || event.results[event.results.length - 1].isFinal) {
+        onSearchInput({ target: searchInput });
+        executeSearch(transcript.trim());
+      }
+    }
+  };
+
+  recognition.onerror = (event) => {
+    console.warn("Speech recognition error:", event.error);
+    isListening = false;
+    micBtn.classList.remove('listening');
+    micBtn.setAttribute('title', 'Voice Search (Speak in Hindi or English)');
+    searchInput.placeholder = 'What do you want to play?';
+    if (event.error === 'not-allowed') {
+      alert("Microphone permission was denied. Please allow microphone access in your browser settings to search by voice.");
+    }
+  };
+
+  recognition.onend = () => {
+    isListening = false;
+    micBtn.classList.remove('listening');
+    micBtn.setAttribute('title', 'Voice Search (Speak in Hindi or English)');
+    searchInput.placeholder = 'What do you want to play?';
+    if (searchInput.value.trim() && searchInput.value.trim() !== State.query) {
+      onSearchInput({ target: searchInput });
+      executeSearch(searchInput.value.trim());
+    }
+  };
+
+  micBtn.addEventListener('click', () => {
+    if (isListening) {
+      try { recognition.stop(); } catch (e) {}
+    } else {
+      try {
+        recognition.start();
+      } catch (err) {
+        console.warn("Recognition start failed:", err);
+      }
+    }
+  });
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   renderBrowseAll();
   renderQueueList();
+  initVoiceSearch();
 
   const searchInput = document.getElementById('search-input');
   if (searchInput) {
@@ -5711,6 +5948,51 @@ document.addEventListener('DOMContentLoaded', () => {
     btnUserLogout.addEventListener('click', () => {
       if (userDropdownPopover) userDropdownPopover.style.display = 'none';
       handleLogout(true);
+    });
+  }
+
+  // Profile modal and header guest profile listeners
+  const btnHeaderGuestProfile = document.getElementById('btn-header-profile-guest');
+  if (btnHeaderGuestProfile) {
+    btnHeaderGuestProfile.addEventListener('click', () => openAuthModal('login'));
+  }
+
+  const btnUserViewProfile = document.getElementById('btn-user-view-profile');
+  if (btnUserViewProfile) {
+    btnUserViewProfile.addEventListener('click', () => {
+      if (userDropdownPopover) userDropdownPopover.style.display = 'none';
+      openProfileModal();
+    });
+  }
+
+  const btnCloseProfileModal = document.getElementById('btn-close-profile-modal');
+  if (btnCloseProfileModal) {
+    btnCloseProfileModal.addEventListener('click', closeProfileModal);
+  }
+
+  const btnSaveProfileName = document.getElementById('btn-save-profile-name');
+  if (btnSaveProfileName) {
+    btnSaveProfileName.addEventListener('click', handleSaveProfileName);
+  }
+
+  const btnProfileSyncNow = document.getElementById('btn-profile-sync-now');
+  if (btnProfileSyncNow) {
+    btnProfileSyncNow.addEventListener('click', async () => {
+      showBannerToast('Syncing songs with cloud database...');
+      await syncServerLibrary();
+      openProfileModal();
+      showBannerToast('Cloud database sync complete!');
+    });
+  }
+
+  const sidebarUserAvatarEl = document.getElementById('sidebar-user-avatar');
+  if (sidebarUserAvatarEl) {
+    sidebarUserAvatarEl.addEventListener('click', () => {
+      if (State.authToken && State.currentUser) {
+        openProfileModal();
+      } else {
+        openAuthModal('login');
+      }
     });
   }
 

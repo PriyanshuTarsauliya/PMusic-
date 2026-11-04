@@ -253,6 +253,44 @@ async function run() {
     assert(Array.isArray(json.user.library));
   });
 
+  await test('Retrieves user profile via /api/user/profile with valid Bearer token (HTTP 200)', async () => {
+    assert(sessionToken, 'Must have active session token');
+    const res = await makeRequest({
+      path: '/api/user/profile',
+      method: 'GET',
+      headers: { 'Authorization': 'Bearer ' + sessionToken }
+    });
+    assert.strictEqual(res.statusCode, 200, 'Expected 200, got ' + res.statusCode);
+    const json = JSON.parse(res.body);
+    assert.strictEqual(json.success, true);
+    assert.strictEqual(json.profile.username, freshUser);
+    assert.strictEqual(typeof json.profile.likedSongsCount, 'number');
+    assert.strictEqual(typeof json.profile.playlistsCount, 'number');
+    assert.strictEqual(json.profile.accountType, 'SPOTIFY PREMIUM');
+  });
+
+  await test('Updates user profile via POST /api/user/profile (HTTP 200)', async () => {
+    assert(sessionToken, 'Must have active session token');
+    const res = await makeRequest({
+      path: '/api/user/profile',
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + sessionToken }
+    }, {
+      displayName: 'Test Maestro',
+      avatar: 'https://example.com/avatar.png'
+    });
+    assert.strictEqual(res.statusCode, 200, 'Expected 200, got ' + res.statusCode);
+    const json = JSON.parse(res.body);
+    assert.strictEqual(json.success, true);
+    assert.strictEqual(json.profile.displayName, 'Test Maestro');
+    assert.strictEqual(json.profile.avatar, 'https://example.com/avatar.png');
+  });
+
+  await test('Rejects /api/user/profile without Authorization (HTTP 401)', async () => {
+    const res = await makeRequest({ path: '/api/user/profile', method: 'GET' });
+    assert.strictEqual(res.statusCode, 401, 'Expected 401, got ' + res.statusCode);
+  });
+
   await test('Rejects /api/auth/me with missing Authorization header (HTTP 401)', async () => {
     const res = await makeRequest({ path: '/api/auth/me', method: 'GET' });
     assert.strictEqual(res.statusCode, 401, `Expected 401, got ${res.statusCode}`);
