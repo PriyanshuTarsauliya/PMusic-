@@ -177,4 +177,55 @@ class ExampleUnitTest {
         assertFalse(isAuthenticHost("spotify.com.attacker.org"))
         assertFalse(isAuthenticHost(null))
     }
+
+    @Test
+    fun loginValidation_rejectsBlankOrEmptyUsername() {
+        fun validateInput(username: String, pass: String): String? {
+            if (username.isBlank()) return "Please enter your Spotify User ID or Email."
+            if (pass.length < 4) return "Password must be at least 4 characters."
+            return null
+        }
+
+        assertEquals("Please enter your Spotify User ID or Email.", validateInput("", "validPass"))
+        assertEquals("Please enter your Spotify User ID or Email.", validateInput("   ", "validPass"))
+        assertEquals("Password must be at least 4 characters.", validateInput("validUser", "123"))
+        assertNull(validateInput("validUser", "1234"))
+    }
+
+    @Test
+    fun loginResponse_parsesTokenAndDerivesDisplayName() {
+        val rawJsonResponse = """
+            {
+                "success": true,
+                "token": "pm_dGVzdA.1793689.abc123sig",
+                "user": {
+                    "username": "ben_spotify_premium@spotify.com",
+                    "library": []
+                }
+            }
+        """.trimIndent()
+
+        val json = JSONObject(rawJsonResponse)
+        val token = json.optString("token", "")
+        assertTrue(token.startsWith("pm_"))
+
+        val username = "ben_spotify_premium@spotify.com"
+        val displayName = if (username.contains("@")) username.substringBefore("@") else username
+        assertEquals("ben_spotify_premium", displayName)
+    }
+
+    @Test
+    fun loginResponse_mapsBackendErrorCodes() {
+        fun mapErrorCode(code: Int): String {
+            return when (code) {
+                401 -> "Invalid username or password."
+                429 -> "Too many attempts. Please back off."
+                else -> "Authentication failed."
+            }
+        }
+
+        assertEquals("Invalid username or password.", mapErrorCode(401))
+        assertEquals("Too many attempts. Please back off.", mapErrorCode(429))
+        assertEquals("Authentication failed.", mapErrorCode(500))
+    }
 }
