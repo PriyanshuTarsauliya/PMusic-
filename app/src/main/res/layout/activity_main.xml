@@ -1628,13 +1628,13 @@
         app:layout_constraintBottom_toBottomOf="parent" />
 
     <!-- Embedded Full-Song Audio Engine (YouTube IFrame API Player) -->
+    <!-- Kept inside viewport (1dp x 1dp, alpha 0.005) so Android OS gives full real-time audio thread priority without background/offscreen throttling -->
     <WebView
         android:id="@+id/webViewPlayer"
-        android:layout_width="320dp"
-        android:layout_height="200dp"
+        android:layout_width="1dp"
+        android:layout_height="1dp"
         android:visibility="visible"
-        android:alpha="0.01"
-        android:translationX="-9999dp"
+        android:alpha="0.005"
         android:importantForAccessibility="no"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent" />

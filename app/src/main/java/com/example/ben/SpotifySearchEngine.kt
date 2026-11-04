@@ -255,13 +255,17 @@ object SpotifySearchEngine {
                         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
                     )
                     conn.setRequestProperty("Accept-Language", "en-US,en;q=0.9")
+                    conn.setRequestProperty(
+                        "Cookie",
+                        "CONSENT=YES+cb.20210328-17-p0.en+FX+478; SOCS=CAESEwgDEgk0ODEzNzg5MjQaAmVuIAEaBgiA_LyaBg"
+                    )
                     if (conn.responseCode == 200) {
                         val reader = BufferedReader(InputStreamReader(conn.inputStream, Charsets.UTF_8))
                         val html = reader.readText()
                         reader.close()
-                        val regexWatch = Regex("""/watch\?v=([a-zA-Z0-9_-]{11})""")
                         val regexJson = Regex(""""videoId":"([a-zA-Z0-9_-]{11})"""")
-                        val m = regexWatch.find(html) ?: regexJson.find(html)
+                        val regexWatch = Regex("""/watch\?v=([a-zA-Z0-9_-]{11})""")
+                        val m = regexJson.find(html) ?: regexWatch.find(html)
                         videoId = m?.groupValues?.get(1)
                         if (videoId != null) {
                             youtubeIdCache.put(cacheKey, videoId)

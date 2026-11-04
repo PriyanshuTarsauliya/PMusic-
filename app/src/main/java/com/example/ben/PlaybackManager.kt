@@ -1,14 +1,20 @@
 package com.example.ben
 
 import android.annotation.SuppressLint
+import android.content.Context
 import android.media.AudioAttributes
+import android.media.AudioFocusRequest
+import android.media.AudioManager
 import android.media.MediaPlayer
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import android.view.View
 import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
+import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import org.json.JSONObject
@@ -30,6 +36,8 @@ object PlaybackManager {
     private var webView: WebView? = null
     private var isYtReady: Boolean = false
     private var pendingVideoId: String? = null
+    private var audioManager: AudioManager? = null
+    private var audioFocusRequest: AudioFocusRequest? = null
     private val handler = Handler(Looper.getMainLooper())
     private val leaseExecutor = Executors.newSingleThreadExecutor()
     private val deviceId: String = "android_" + UUID.randomUUID().toString().take(8)
@@ -123,6 +131,9 @@ object PlaybackManager {
                 val wasPlaying = mp.isPlaying
                 val params = mp.playbackParams
                 params.speed = speed
+                // Lock pitch to 1.0f to prevent pitch-shifting (chipmunk at high speed / deep monster at slow speed)
+                params.pitch = 1.0f
+                params.audioFallbackMode = android.media.PlaybackParams.AUDIO_FALLBACK_MODE_DEFAULT
                 mp.playbackParams = params
                 if (!wasPlaying && mp.isPlaying) {
                     mp.pause()
@@ -141,6 +152,64 @@ object PlaybackManager {
         val ctx = webView?.context?.applicationContext ?: return
         if (currentSong != null) {
             MediaPlaybackService.updateNotification(ctx, currentSong, isPlaying)
+        }
+    }
+
+    private fun ensureAudioFocus(context: Context) {
+        if (audioManager == null) {
+            audioManager = context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
+        }
+        val am = audioManager ?: return
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            if (audioFocusRequest == null) {
+                val attr = AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_MEDIA)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                    .build()
+                audioFocusRequest = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
+                    .setAudioAttributes(attr)
+                    .setAcceptsDelayedFocusGain(true)
+                    .setOnAudioFocusChangeListener { focus ->
+                        when (focus) {
+                            AudioManager.AUDIOFOCUS_LOSS,
+                            AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> {
+                                if (isPlaying) pause()
+                            }
+                            AudioManager.AUDIOFOCUS_GAIN -> {
+                                if (!isPlaying && currentSong != null) resume()
+                            }
+                        }
+                    }
+                    .build()
+            }
+            audioFocusRequest?.let { am.requestAudioFocus(it) }
+        } else {
+            @Suppress("DEPRECATION")
+            am.requestAudioFocus(
+                { focus ->
+                    when (focus) {
+                        AudioManager.AUDIOFOCUS_LOSS,
+                        AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> {
+                            if (isPlaying) pause()
+                        }
+                        AudioManager.AUDIOFOCUS_GAIN -> {
+                            if (!isPlaying && currentSong != null) resume()
+                        }
+                    }
+                },
+                AudioManager.STREAM_MUSIC,
+                AudioManager.AUDIOFOCUS_GAIN
+            )
+        }
+    }
+
+    private fun abandonAudioFocus() {
+        val am = audioManager ?: return
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            audioFocusRequest?.let { am.abandonAudioFocusRequest(it) }
+        } else {
+            @Suppress("DEPRECATION")
+            am.abandonAudioFocus(null)
         }
     }
 
@@ -278,10 +347,13 @@ object PlaybackManager {
     @SuppressLint("SetJavaScriptEnabled")
     fun attachWebView(view: WebView) {
         this.webView = view
+        view.setLayerType(View.LAYER_TYPE_HARDWARE, null)
+        view.resumeTimers()
         view.settings.apply {
             javaScriptEnabled = true
             mediaPlaybackRequiresUserGesture = false
             domStorageEnabled = true
+            cacheMode = WebSettings.LOAD_DEFAULT
             loadWithOverviewMode = true
             useWideViewPort = true
             // Modern Chrome User-Agent prevents YouTube error 150 on mobile webview
@@ -317,11 +389,19 @@ object PlaybackManager {
                 var pendingVideoId = null;
                 var currentPlaybackRate = 1.0;
 
+                function enforceSpeed() {
+                  if (!player || typeof player.setPlaybackRate !== 'function') return;
+                  var target = currentPlaybackRate || 1.0;
+                  try {
+                    player.setPlaybackRate(target);
+                  } catch(e) {}
+                }
+
                 function setPlaybackSpeed(rate) {
-                  currentPlaybackRate = Number(rate) || 1.0;
-                  if (player && typeof player.setPlaybackRate === 'function') {
-                    try { player.setPlaybackRate(currentPlaybackRate); } catch(e){}
-                  }
+                  var numRate = parseFloat(rate);
+                  if (isNaN(numRate)) numRate = 1.0;
+                  currentPlaybackRate = numRate;
+                  enforceSpeed();
                 }
                 window.setPlaybackSpeed = setPlaybackSpeed;
 
@@ -336,6 +416,9 @@ object PlaybackManager {
                       playsinline: 1,
                       rel: 0,
                       fs: 0,
+                      modestbranding: 1,
+                      iv_load_policy: 3,
+                      enablejsapi: 1,
                       origin: 'https://www.youtube-nocookie.com'
                     },
                     events: {
@@ -343,9 +426,12 @@ object PlaybackManager {
                         isReady = true;
                         window.player = player;
                         window.ytPlayer = player;
-                        if (currentPlaybackRate !== 1.0 && typeof player.setPlaybackRate === 'function') {
-                          try { player.setPlaybackRate(currentPlaybackRate); } catch(e){}
-                        }
+                        try {
+                          if (typeof player.setPlaybackQuality === 'function') {
+                            player.setPlaybackQuality('hd720');
+                          }
+                        } catch(qErr) {}
+                        enforceSpeed();
                         AndroidBridge.onPlayerReady();
                         if (pendingVideoId) {
                           loadAndPlay(pendingVideoId);
@@ -353,8 +439,13 @@ object PlaybackManager {
                         }
                       },
                       onStateChange: function(e) {
-                        if (e.data === 1 && currentPlaybackRate !== 1.0 && player && typeof player.setPlaybackRate === 'function') {
-                          try { player.setPlaybackRate(currentPlaybackRate); } catch(e){}
+                        if (e.data === 1) {
+                          enforceSpeed();
+                          try {
+                            if (typeof player.setPlaybackQuality === 'function') {
+                              player.setPlaybackQuality('hd720');
+                            }
+                          } catch(qErr) {}
                         }
                         AndroidBridge.onStateChange(e.data);
                       },
@@ -372,7 +463,7 @@ object PlaybackManager {
                         AndroidBridge.onProgressUpdate(Math.round(cur * 1000), Math.round(dur * 1000));
                       }
                     }
-                  }, 200);
+                  }, 150);
                 }
 
                 function loadAndPlay(vId) {
@@ -380,13 +471,22 @@ object PlaybackManager {
                     pendingVideoId = vId;
                     return;
                   }
-                  player.loadVideoById(vId);
-                  player.playVideo();
-                  if (currentPlaybackRate !== 1.0 && typeof player.setPlaybackRate === 'function') {
-                    setTimeout(function() {
-                      try { player.setPlaybackRate(currentPlaybackRate); } catch(e){}
-                    }, 120);
+                  try {
+                    player.loadVideoById({
+                      videoId: vId,
+                      suggestedQuality: 'hd720'
+                    });
+                    player.playVideo();
+                    if (typeof player.setPlaybackQuality === 'function') {
+                      player.setPlaybackQuality('hd720');
+                    }
+                  } catch(e) {
+                    player.loadVideoById(vId);
+                    player.playVideo();
                   }
+                  setTimeout(function() {
+                    enforceSpeed();
+                  }, 80);
                 }
 
                 function pauseVideo() {
@@ -434,6 +534,7 @@ object PlaybackManager {
         listeners.forEach { it.onSongChanged(song) }
         val ctx = webView?.context?.applicationContext
         if (ctx != null) {
+            ensureAudioFocus(ctx)
             MediaPlaybackService.startService(ctx, song, true)
         }
 
@@ -789,6 +890,7 @@ object PlaybackManager {
     }
 
     fun release() {
+        abandonAudioFocus()
         val ctx = webView?.context?.applicationContext
         if (ctx != null) {
             MediaPlaybackService.stopService(ctx)

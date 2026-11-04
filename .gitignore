@@ -16,4 +16,6 @@ spotify-search/
 *.pem
 *.key
 credentials.json
+0.26.0
+
 
