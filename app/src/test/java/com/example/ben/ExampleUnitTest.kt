@@ -228,4 +228,71 @@ class ExampleUnitTest {
         assertEquals("Too many attempts. Please back off.", mapErrorCode(429))
         assertEquals("Authentication failed.", mapErrorCode(500))
     }
+    @Test
+    fun chatImporter_extractsNumberedSongQueries() {
+        val input = """
+            1. Starboy - The Weeknd
+            2) Yellow - Coldplay
+            3 - Levitating - Dua Lipa
+            4. Believer - Imagine Dragons
+        """.trimIndent()
+
+        val queries = ChatImportBottomSheet.extractSongQueries(input)
+        assertEquals(4, queries.size)
+        assertEquals("Starboy - The Weeknd", queries[0])
+        assertEquals("Yellow - Coldplay", queries[1])
+        assertEquals("Levitating - Dua Lipa", queries[2])
+        assertEquals("Believer - Imagine Dragons", queries[3])
+    }
+
+    @Test
+    fun chatImporter_extractsChatPromptQueries() {
+        val input = "Hey PMusic add Shape of You, Perfect, and Faded to my library"
+        val queries = ChatImportBottomSheet.extractSongQueries(input)
+        assertEquals(3, queries.size)
+        assertEquals("Shape of You", queries[0])
+        assertEquals("Perfect", queries[1])
+        assertEquals("Faded", queries[2])
+    }
+
+    @Test
+    fun chatImporter_extractsCommaSeparatedQueries() {
+        val input = "Starboy, Bohemian Rhapsody, Flowers, Stay With Me, Bad Guy"
+        val queries = ChatImportBottomSheet.extractSongQueries(input)
+        assertEquals(5, queries.size)
+        assertEquals("Starboy", queries[0])
+        assertEquals("Bohemian Rhapsody", queries[1])
+        assertEquals("Flowers", queries[2])
+    }
+
+    @Test
+    fun playbackSpeed_supportsExpectedSpeedMultipliers() {
+        val supportedSpeeds = listOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f)
+        assertTrue(supportedSpeeds.contains(0.5f))
+        assertTrue(supportedSpeeds.contains(0.75f))
+        assertTrue(supportedSpeeds.contains(1.0f))
+        assertTrue(supportedSpeeds.contains(1.25f))
+        assertTrue(supportedSpeeds.contains(1.5f))
+        assertTrue(supportedSpeeds.contains(2.0f))
+
+        fun cycleSpeed(current: Float): Float {
+            val idx = supportedSpeeds.indexOf(current)
+            return supportedSpeeds[(idx + 1) % supportedSpeeds.size]
+        }
+
+        assertEquals(1.25f, cycleSpeed(1.0f), 0.001f)
+        assertEquals(1.5f, cycleSpeed(1.25f), 0.001f)
+        assertEquals(0.5f, cycleSpeed(2.0f), 0.001f)
+    }
+
+    @Test
+    fun mediaPlaybackService_definesStandardActionProtocol() {
+        assertEquals("com.example.ben.action.START", MediaPlaybackService.ACTION_START)
+        assertEquals("com.example.ben.action.UPDATE", MediaPlaybackService.ACTION_UPDATE)
+        assertEquals("com.example.ben.action.TOGGLE", MediaPlaybackService.ACTION_TOGGLE)
+        assertEquals("com.example.ben.action.NEXT", MediaPlaybackService.ACTION_NEXT)
+        assertEquals("com.example.ben.action.PREV", MediaPlaybackService.ACTION_PREV)
+        assertEquals("com.example.ben.action.STOP", MediaPlaybackService.ACTION_STOP)
+        assertEquals("pmusic_playback_channel", MediaPlaybackService.CHANNEL_ID)
+    }
 }

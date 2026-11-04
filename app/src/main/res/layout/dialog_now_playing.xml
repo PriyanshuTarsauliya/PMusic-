@@ -68,6 +68,23 @@
                     tools:text="Today's Top Hits" />
             </LinearLayout>
 
+            <TextView
+                android:id="@+id/btnNowPlayingSpeed"
+                android:layout_width="wrap_content"
+                android:layout_height="28dp"
+                android:layout_marginEnd="10dp"
+                android:background="@drawable/bg_spotify_button_outlined"
+                android:gravity="center"
+                android:paddingStart="8dp"
+                android:paddingEnd="8dp"
+                android:text="1.0x"
+                android:textColor="@color/spotify_green"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:clickable="true"
+                android:focusable="true"
+                android:contentDescription="Playback Speed" />
+
             <ImageButton
                 android:id="@+id/btnNowPlayingMore"
                 android:layout_width="36dp"

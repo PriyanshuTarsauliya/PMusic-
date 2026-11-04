@@ -393,6 +393,56 @@ object SpotifySearchEngine {
         }
     }
 
+    fun searchImmediate(query: String): List<Song> {
+        val trimmed = query.trim()
+        if (trimmed.isEmpty()) return defaultCuratedSongs
+
+        val curatedMatches = defaultCuratedSongs.filter {
+            it.title.contains(trimmed, ignoreCase = true) || it.artist.contains(trimmed, ignoreCase = true)
+        }
+        if (curatedMatches.isNotEmpty()) return curatedMatches
+
+        val list = mutableListOf<Song>()
+        try {
+            val encoded = URLEncoder.encode(trimmed, "UTF-8")
+            val searchUrl = "https://itunes.apple.com/search?term=$encoded&entity=song&limit=10"
+            val conn = (URL(searchUrl).openConnection() as HttpURLConnection).apply {
+                connectTimeout = 2500
+                readTimeout = 2500
+                requestMethod = "GET"
+                setRequestProperty("User-Agent", "Spotify-REA/1.305.3058.0 Android")
+            }
+            if (conn.responseCode == 200) {
+                val text = conn.inputStream.bufferedReader().use { it.readText() }
+                val json = JSONObject(text)
+                val results = json.optJSONArray("results")
+                if (results != null) {
+                    for (i in 0 until results.length()) {
+                        val item = results.getJSONObject(i)
+                        val title = item.optString("trackName", "")
+                        val artist = item.optString("artistName", "Unknown Artist")
+                        if (title.isNotBlank()) {
+                            list.add(
+                                Song(
+                                    id = item.optLong("trackId", 0L).toString(),
+                                    title = title,
+                                    artist = artist,
+                                    album = item.optString("collectionName", "Single"),
+                                    durationFormatted = formatDuration(item.optLong("trackTimeMillis", 180000L)),
+                                    audioUrl = item.optString("previewUrl", ""),
+                                    artworkUrl = item.optString("artworkUrl100", "").replace("100x100bb.jpg", "400x400bb.jpg"),
+                                    durationMs = item.optLong("trackTimeMillis", 180000L)
+                                )
+                            )
+                        }
+                    }
+                }
+            }
+            conn.disconnect()
+        } catch (e: Exception) {}
+        return if (list.isNotEmpty()) list else defaultCuratedSongs.take(3)
+    }
+
     private fun formatDuration(millis: Long): String {
         val totalSecs = millis / 1000
         val mins = totalSecs / 60

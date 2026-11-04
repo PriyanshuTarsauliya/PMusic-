@@ -1,0 +1,257 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="#181818"
+    android:orientation="vertical"
+    android:padding="20dp">
+
+    <!-- Top Drag Handle -->
+    <View
+        android:layout_width="40dp"
+        android:layout_height="4dp"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginBottom="16dp"
+        android:background="#444444" />
+
+    <!-- Header -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <TextView
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:background="@drawable/bg_developer_badge"
+            android:gravity="center"
+            android:text="💬"
+            android:textSize="18sp" />
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Chat &amp; Batch Song Importer"
+                android:textColor="@color/spotify_white"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Paste songs or chat input to save them to library"
+                android:textColor="@color/spotify_subdued"
+                android:textSize="12sp" />
+        </LinearLayout>
+
+        <ImageButton
+            android:id="@+id/btnDismissChatImport"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Close"
+            android:src="@drawable/ic_chevron_down"
+            app:tint="@color/spotify_white" />
+    </LinearLayout>
+
+    <!-- Example Chips ScrollView -->
+    <HorizontalScrollView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="14dp"
+        android:scrollbars="none">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/chipSampleNumbered"
+                style="@style/Widget.MaterialComponents.Button.TextButton"
+                android:layout_width="wrap_content"
+                android:layout_height="32dp"
+                android:background="@drawable/bg_spotify_button_outlined"
+                android:text="🔢 1. Title - Artist"
+                android:textColor="@color/spotify_white"
+                android:textSize="11sp" />
+
+            <Button
+                android:id="@+id/chipSampleLines"
+                style="@style/Widget.MaterialComponents.Button.TextButton"
+                android:layout_width="wrap_content"
+                android:layout_height="32dp"
+                android:layout_marginStart="8dp"
+                android:background="@drawable/bg_spotify_button_outlined"
+                android:text="📜 Line by Line"
+                android:textColor="@color/spotify_white"
+                android:textSize="11sp" />
+
+            <Button
+                android:id="@+id/chipSampleComma"
+                style="@style/Widget.MaterialComponents.Button.TextButton"
+                android:layout_width="wrap_content"
+                android:layout_height="32dp"
+                android:layout_marginStart="8dp"
+                android:background="@drawable/bg_spotify_button_outlined"
+                android:text="🔤 Comma Separated"
+                android:textColor="@color/spotify_white"
+                android:textSize="11sp" />
+
+            <Button
+                android:id="@+id/chipSampleChat"
+                style="@style/Widget.MaterialComponents.Button.TextButton"
+                android:layout_width="wrap_content"
+                android:layout_height="32dp"
+                android:layout_marginStart="8dp"
+                android:background="@drawable/bg_spotify_button_outlined"
+                android:text="💬 Chat Prompt"
+                android:textColor="@color/spotify_white"
+                android:textSize="11sp" />
+        </LinearLayout>
+    </HorizontalScrollView>
+
+    <!-- Counter text -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:orientation="horizontal">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Your Song List / Prompt:"
+            android:textColor="@color/spotify_subdued"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/tvChatSongCounter"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="0 songs detected"
+            android:textColor="@color/spotify_green"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <!-- Multiline EditText -->
+    <EditText
+        android:id="@+id/etChatSongInput"
+        android:layout_width="match_parent"
+        android:layout_height="120dp"
+        android:layout_marginTop="6dp"
+        android:background="@drawable/bg_edittext"
+        android:gravity="top|start"
+        android:hint="Paste songs here, e.g.:\n1. Starboy - The Weeknd\n2. Yellow - Coldplay\n3. Levitating - Dua Lipa"
+        android:padding="12dp"
+        android:textColor="@color/spotify_white"
+        android:textColorHint="@color/spotify_subdued"
+        android:textSize="13sp" />
+
+    <!-- Action Buttons Row -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <Button
+            android:id="@+id/btnChatClear"
+            style="@style/Widget.MaterialComponents.Button.TextButton"
+            android:layout_width="wrap_content"
+            android:layout_height="40dp"
+            android:text="Clear"
+            android:textColor="@color/spotify_subdued"
+            android:textSize="12sp" />
+
+        <ProgressBar
+            android:id="@+id/chatImportProgress"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:layout_marginStart="8dp"
+            android:indeterminateTint="@color/spotify_green"
+            android:visibility="gone" />
+
+        <View
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:layout_weight="1" />
+
+        <Button
+            android:id="@+id/btnChatSubmit"
+            android:layout_width="wrap_content"
+            android:layout_height="40dp"
+            android:background="@drawable/bg_spotify_button"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:text="Parse &amp; Save"
+            android:textColor="@color/black"
+            android:textSize="13sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <!-- Results Panel -->
+    <LinearLayout
+        android:id="@+id/layoutChatResults"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="14dp"
+        android:orientation="vertical"
+        android:visibility="gone">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/tvChatStatusMessage"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:textColor="@color/spotify_green"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                tools:text="Imported 3 songs to library!" />
+
+            <Button
+                android:id="@+id/btnPlayImportedSongs"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:background="@drawable/bg_spotify_button"
+                android:paddingStart="14dp"
+                android:paddingEnd="14dp"
+                android:text="▶ Play All"
+                android:textColor="@color/black"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/tvChatImportedList"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:background="#222222"
+            android:padding="10dp"
+            android:textColor="@color/spotify_white"
+            android:textSize="12sp"
+            tools:text="• Starboy - The Weeknd\n• Yellow - Coldplay\n• Levitating - Dua Lipa" />
+    </LinearLayout>
+
+</LinearLayout>

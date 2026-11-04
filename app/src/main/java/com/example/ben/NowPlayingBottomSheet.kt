@@ -108,6 +108,11 @@ class NowPlayingBottomSheet : BottomSheetDialogFragment(), PlaybackManager.Playb
         }
         updateSleepTimerUi()
 
+        binding.btnNowPlayingSpeed.setOnClickListener {
+            showPlaybackSpeedDialog()
+        }
+        updateSpeedUi(PlaybackManager.playbackSpeed)
+
         binding.nowPlayingSeekBar.setOnSeekBarChangeListener(
             object : SeekBar.OnSeekBarChangeListener {
                 override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
@@ -205,6 +210,11 @@ class NowPlayingBottomSheet : BottomSheetDialogFragment(), PlaybackManager.Playb
         updateRepeatUi(repeatMode)
     }
 
+    override fun onPlaybackSpeedChanged(speed: Float) {
+        if (_binding == null) return
+        updateSpeedUi(speed)
+    }
+
     // =========================================================================
     // REAL-TIME SYNCHRONIZED & PLAIN LYRICS ENGINE
     // =========================================================================
@@ -293,6 +303,29 @@ class NowPlayingBottomSheet : BottomSheetDialogFragment(), PlaybackManager.Playb
         }
 
         binding.tvLyricsContent.text = ssb
+    }
+
+    private fun updateSpeedUi(speed: Float) {
+        binding.btnNowPlayingSpeed.text = "${speed}x"
+    }
+
+    private fun showPlaybackSpeedDialog() {
+        val speeds = arrayOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f)
+        val labels = arrayOf("0.5x", "0.75x", "1.0x (Normal)", "1.25x", "1.5x", "2.0x")
+        val currentSpeed = PlaybackManager.playbackSpeed
+        val selectedIdx = speeds.indexOfFirst { it == currentSpeed }.coerceAtLeast(2)
+
+        AlertDialog.Builder(requireContext(), androidx.appcompat.R.style.Theme_AppCompat_Dialog_Alert)
+            .setTitle("Playback Speed")
+            .setSingleChoiceItems(labels, selectedIdx) { dialog, which ->
+                val newSpeed = speeds[which]
+                PlaybackManager.setPlaybackSpeed(newSpeed)
+                updateSpeedUi(newSpeed)
+                Toast.makeText(requireContext(), "Speed set to ${newSpeed}x", Toast.LENGTH_SHORT).show()
+                dialog.dismiss()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
     }
 
     // =========================================================================

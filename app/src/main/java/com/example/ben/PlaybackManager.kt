@@ -86,6 +86,42 @@ object PlaybackManager {
         return repeatMode
     }
 
+    var playbackSpeed: Float = 1.0f
+        private set
+
+    fun setPlaybackSpeed(speed: Float) {
+        playbackSpeed = speed
+        if (activeEngine == Engine.MEDIA_PLAYER) {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+                try {
+                    val mp = mediaPlayer
+                    if (mp != null) {
+                        val params = mp.playbackParams
+                        mp.playbackParams = params.setSpeed(speed)
+                    }
+                } catch (e: Exception) {
+                    Log.w(TAG, "Failed to set media player speed: ${e.message}")
+                }
+            }
+        } else if (activeEngine == Engine.YOUTUBE) {
+            webView?.post {
+                webView?.evaluateJavascript("if (window.ytPlayer && typeof window.ytPlayer.setPlaybackRate === 'function') { window.ytPlayer.setPlaybackRate(" + speed + "); }", null)
+            }
+        }
+        listeners.forEach { it.onPlaybackSpeedChanged(speed) }
+    }
+
+    fun resume() {
+        if (!isPlaying) togglePlayPause()
+    }
+
+    fun updateMediaNotification() {
+        val ctx = webView?.context?.applicationContext ?: return
+        if (currentSong != null) {
+            MediaPlaybackService.updateNotification(ctx, currentSong, isPlaying)
+        }
+    }
+
     private fun notifyPlaybackModes() {
         listeners.forEach {
             it.onPlaybackModeChanged(isShuffleEnabled, repeatMode)
@@ -97,6 +133,7 @@ object PlaybackManager {
         fun onPlaybackStateChanged(isPlaying: Boolean)
         fun onProgressUpdate(currentPositionMs: Int, totalDurationMs: Int)
         fun onPlaybackModeChanged(isShuffle: Boolean, repeatMode: RepeatMode) {}
+        fun onPlaybackSpeedChanged(speed: Float) {}
     }
 
     private val listeners = mutableListOf<PlaybackListener>()
@@ -171,6 +208,7 @@ object PlaybackManager {
                         if (activeEngine == Engine.YOUTUBE) {
                             isPlaying = false
                             listeners.forEach { it.onPlaybackStateChanged(false) }
+                updateMediaNotification()
                         }
                     }
                     0 -> {
@@ -340,6 +378,10 @@ object PlaybackManager {
     fun playSong(song: Song) {
         currentSong = song
         listeners.forEach { it.onSongChanged(song) }
+        val ctx = webView?.context?.applicationContext
+        if (ctx != null) {
+            MediaPlaybackService.startService(ctx, song, true)
+        }
 
         // 1. If song already has youtubeId, play complete 100% full song via YouTube
         val yId = song.youtubeId
@@ -390,6 +432,7 @@ object PlaybackManager {
             Log.w(TAG, "Cannot play song with blank audioUrl: ${song.title}")
             isPlaying = false
             listeners.forEach { it.onPlaybackStateChanged(false) }
+                updateMediaNotification()
             return
         }
 
@@ -427,6 +470,7 @@ object PlaybackManager {
                     this@PlaybackManager.isPlaying = false
                     handler.removeCallbacks(progressRunnable)
                     listeners.forEach { it.onPlaybackStateChanged(false) }
+                updateMediaNotification()
                     true
                 }
                 prepareAsync()
@@ -435,6 +479,7 @@ object PlaybackManager {
             Log.e(TAG, "Error playing song: ${e.message}")
             isPlaying = false
             listeners.forEach { it.onPlaybackStateChanged(false) }
+                updateMediaNotification()
         }
     }
 
@@ -596,12 +641,14 @@ object PlaybackManager {
             if (isPlaying) {
                 isPlaying = false
                 listeners.forEach { it.onPlaybackStateChanged(false) }
+                updateMediaNotification()
                 webView?.post {
                     webView?.evaluateJavascript("pauseVideo();", null)
                 }
             } else {
                 isPlaying = true
                 listeners.forEach { it.onPlaybackStateChanged(true) }
+                updateMediaNotification()
                 webView?.post {
                     webView?.evaluateJavascript("playVideo();", null)
                 }
@@ -618,12 +665,14 @@ object PlaybackManager {
                     isPlaying = false
                     mediaPlayerSeekOffsetMs += (System.currentTimeMillis() - mediaPlayerStartTimeMs)
                     listeners.forEach { it.onPlaybackStateChanged(false) }
+                updateMediaNotification()
                 } else {
                     mediaPlayerStartTimeMs = System.currentTimeMillis()
                     mp.start()
                     isPlaying = true
                     handler.post(progressRunnable)
                     listeners.forEach { it.onPlaybackStateChanged(true) }
+                updateMediaNotification()
                 }
             } catch (e: Exception) {
                 currentSong?.let { playSong(it) }
@@ -680,6 +729,10 @@ object PlaybackManager {
     }
 
     fun release() {
+        val ctx = webView?.context?.applicationContext
+        if (ctx != null) {
+            MediaPlaybackService.stopService(ctx)
+        }
         stopMediaPlayer()
         stopYouTube()
         webView = null

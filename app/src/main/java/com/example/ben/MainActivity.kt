@@ -513,6 +513,10 @@ class MainActivity : AppCompatActivity(), PlaybackManager.PlaybackListener {
             showCreatePlaylistDialog()
         }
 
+        binding.btnLibraryImport.setOnClickListener {
+            ChatImportBottomSheet.newInstance().show(supportFragmentManager, ChatImportBottomSheet.TAG)
+        }
+
         binding.btnLibrarySearch.setOnClickListener {
             binding.bottomNavigation.selectedItemId = R.id.nav_search
         }
