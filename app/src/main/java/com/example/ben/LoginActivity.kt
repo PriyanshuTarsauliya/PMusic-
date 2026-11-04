@@ -52,6 +52,7 @@ class LoginActivity : AppCompatActivity() {
                 var token = ""
                 var success = false
                 var errorMsg = ""
+                var serverUserObj: org.json.JSONObject? = null
                 try {
                     val url = java.net.URL("http://10.0.2.2:3456/api/auth/login")
                     val conn = (url.openConnection() as java.net.HttpURLConnection).apply {
@@ -76,6 +77,7 @@ class LoginActivity : AppCompatActivity() {
 
                         // Import server library and liked tracks into UserLibraryManager
                         val userObj = json.optJSONObject("user")
+                        serverUserObj = userObj
                         if (userObj != null) {
                             UserLibraryManager.init(this@LoginActivity)
                             UserLibraryManager.importFromLogin(userObj, token)
@@ -102,11 +104,15 @@ class LoginActivity : AppCompatActivity() {
                     binding.btnLogin.isEnabled = true
 
                     if (success) {
+                        val dName = serverUserObj?.optString("displayName", "")
+                        val resolvedName = if (!dName.isNullOrBlank()) dName else if (username.contains("@")) username.substringBefore("@") else username
+                        val avatar = serverUserObj?.optString("avatar", "") ?: ""
                         sessionManager.saveLogin(
                             userId = username,
-                            displayName = if (username.contains("@")) username.substringBefore("@") else username,
+                            displayName = resolvedName,
                             accountType = "SPOTIFY PREMIUM",
-                            token = token
+                            token = token,
+                            avatar = avatar
                         )
                         Toast.makeText(this, "Logged in as $username", Toast.LENGTH_SHORT).show()
                         launchMainActivity()

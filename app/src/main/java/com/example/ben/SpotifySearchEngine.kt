@@ -17,9 +17,38 @@ import java.util.zip.GZIPInputStream
 object SpotifySearchEngine {
 
     private val executor = Executors.newFixedThreadPool(4)
-    private val mainHandler = Handler(Looper.getMainLooper())
-    private val searchCache = object : LruCache<String, List<Song>>(80) {}
-    private val youtubeIdCache = object : LruCache<String, String>(150) {}
+    private val mainHandler: Handler? by lazy {
+        try {
+            Handler(Looper.getMainLooper())
+        } catch (_: Throwable) {
+            null
+        }
+    }
+
+    private fun postToMain(action: () -> Unit) {
+        val h = mainHandler
+        if (h != null) {
+            h.post(action)
+        } else {
+            action()
+        }
+    }
+
+    private val searchCache = java.util.Collections.synchronizedMap(
+        object : java.util.LinkedHashMap<String, List<Song>>(80, 0.75f, true) {
+            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, List<Song>>?): Boolean {
+                return size > 80
+            }
+        }
+    )
+
+    private val youtubeIdCache = java.util.Collections.synchronizedMap(
+        object : java.util.LinkedHashMap<String, String>(150, 0.75f, true) {
+            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, String>?): Boolean {
+                return size > 150
+            }
+        }
+    )
 
     val defaultCuratedSongs = listOf(
         Song(
@@ -277,8 +306,122 @@ object SpotifySearchEngine {
                 try { conn?.disconnect() } catch (e: Exception) {}
             }
 
-            mainHandler.post { onResult(videoId) }
+            postToMain { onResult(videoId) }
         }
+    }
+
+    fun isHindiQuery(text: String): Boolean {
+        return text.any { it in '\u0900'..'\u097F' } ||
+               text.contains("hindi", ignoreCase = true) ||
+               text.contains("bollywood", ignoreCase = true) ||
+               text.contains("arijit", ignoreCase = true)
+    }
+
+    fun searchYouTubeDirect(query: String, limit: Int = 25): List<Song> {
+        val list = mutableListOf<Song>()
+        var conn: HttpURLConnection? = null
+        try {
+            val encoded = URLEncoder.encode(query, "UTF-8")
+            val url = URL("https://www.youtube.com/results?search_query=$encoded")
+            conn = url.openConnection() as HttpURLConnection
+            conn.connectTimeout = 4000
+            conn.readTimeout = 4000
+            conn.setRequestProperty(
+                "User-Agent",
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            )
+            conn.setRequestProperty("Accept-Language", "hi,en;q=0.9")
+            conn.setRequestProperty(
+                "Cookie",
+                "CONSENT=YES+cb.20210328-17-p0.en+FX+478; SOCS=CAESEwgDEgk0ODEzNzg5MjQaAmVuIAEaBgiA_LyaBg"
+            )
+            if (conn.responseCode == 200) {
+                val html = conn.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
+                val startIdx = html.indexOf("var ytInitialData =")
+                if (startIdx != -1) {
+                    val jsonStart = html.indexOf('{', startIdx)
+                    val scriptEnd = html.indexOf(";</script>", jsonStart)
+                    if (jsonStart != -1 && scriptEnd != -1) {
+                        try {
+                            val jsonStr = html.substring(jsonStart, scriptEnd)
+                            val root = JSONObject(jsonStr)
+                            val contents = root.optJSONObject("contents")
+                                ?.optJSONObject("twoColumnSearchResultsRenderer")
+                                ?.optJSONObject("primaryContents")
+                                ?.optJSONObject("sectionListRenderer")
+                                ?.optJSONArray("contents")
+                            val itemSection = contents?.optJSONObject(0)?.optJSONObject("itemSectionRenderer")
+                            val items = itemSection?.optJSONArray("contents")
+                            if (items != null) {
+                                for (i in 0 until items.length()) {
+                                    if (list.size >= limit) break
+                                    val videoRenderer = items.getJSONObject(i).optJSONObject("videoRenderer") ?: continue
+                                    val videoId = videoRenderer.optString("videoId", "")
+                                    if (videoId.isBlank()) continue
+                                    val titleRuns = videoRenderer.optJSONObject("title")?.optJSONArray("runs")
+                                    val title = titleRuns?.optJSONObject(0)?.optString("text", "YouTube Track") ?: "YouTube Track"
+                                    val channelRuns = videoRenderer.optJSONObject("ownerText")?.optJSONArray("runs")
+                                    val artist = channelRuns?.optJSONObject(0)?.optString("text", "YouTube Music") ?: "YouTube Music"
+                                    val thumbList = videoRenderer.optJSONObject("thumbnail")?.optJSONArray("thumbnails")
+                                    val artwork = if (thumbList != null && thumbList.length() > 0) {
+                                        thumbList.optJSONObject(thumbList.length() - 1)?.optString("url") ?: "https://i.ytimg.com/vi/$videoId/hqdefault.jpg"
+                                    } else {
+                                        "https://i.ytimg.com/vi/$videoId/hqdefault.jpg"
+                                    }
+                                    val durationStr = videoRenderer.optJSONObject("lengthText")?.optString("simpleText", "3:45") ?: "3:45"
+                                    
+                                    val songKey = "$artist $title".trim().lowercase(Locale.ROOT)
+                                    youtubeIdCache.put(songKey, videoId)
+                                    list.add(
+                                        Song(
+                                            id = "yt-$videoId",
+                                            title = title,
+                                            artist = artist,
+                                            album = "YouTube Music",
+                                            durationFormatted = durationStr,
+                                            audioUrl = "https://www.youtube.com/watch?v=$videoId",
+                                            artworkUrl = artwork,
+                                            youtubeId = videoId,
+                                            durationMs = 210000L
+                                        )
+                                    )
+                                }
+                            }
+                        } catch (e: Exception) {}
+                    }
+                }
+
+                // Regex fallback if structured parsing returned nothing
+                if (list.isEmpty()) {
+                    val regex = Regex(""""videoId":"([a-zA-Z0-9_-]{11})"""")
+                    val matches = regex.findAll(html)
+                    for (m in matches) {
+                        if (list.size >= limit) break
+                        val vId = m.groupValues[1]
+                        if (list.none { it.youtubeId == vId }) {
+                            list.add(
+                                Song(
+                                    id = "yt-$vId",
+                                    title = "$query - Official Audio",
+                                    artist = "YouTube Music",
+                                    album = "YouTube Audio",
+                                    durationFormatted = "3:30",
+                                    audioUrl = "https://www.youtube.com/watch?v=$vId",
+                                    artworkUrl = "https://i.ytimg.com/vi/$vId/hqdefault.jpg",
+                                    youtubeId = vId,
+                                    durationMs = 210000L
+                                )
+                            )
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            // Direct YouTube fallback
+        } finally {
+            try { conn?.disconnect() } catch (e: Exception) {}
+        }
+        return list
     }
 
     fun search(query: String, onResult: (List<Song>) -> Unit) {
@@ -306,70 +449,137 @@ object SpotifySearchEngine {
 
         executor.execute {
             val liveSongs = mutableListOf<Song>()
-            var conn: HttpURLConnection? = null
+            val isHindi = isHindiQuery(trimmed)
+            val encoded = URLEncoder.encode(trimmed, "UTF-8")
+
+            // 1. Primary: PMusic Multi-Source Backend (YouTube Music + iTunes + Hindi intelligence)
             try {
-                val encoded = URLEncoder.encode(trimmed, "UTF-8")
-                val searchUrl = "https://itunes.apple.com/search?term=$encoded&entity=song&limit=50"
-                conn = URL(searchUrl).openConnection() as HttpURLConnection
-                conn.connectTimeout = 3500
-                conn.readTimeout = 3500
-                conn.requestMethod = "GET"
-                conn.useCaches = true
-                conn.setRequestProperty("User-Agent", "Spotify-REA/1.305.3058.0 Android")
-                conn.setRequestProperty("Accept-Encoding", "gzip")
-
-                if (conn.responseCode == 200) {
-                    val encoding = conn.contentEncoding
-                    val inputStream = if (encoding != null && encoding.equals("gzip", ignoreCase = true)) {
-                        GZIPInputStream(conn.inputStream)
-                    } else {
-                        conn.inputStream
-                    }
-
-                    val reader = BufferedReader(InputStreamReader(inputStream, Charsets.UTF_8))
-                    val responseStr = reader.readText()
-                    reader.close()
-
-                    val json = JSONObject(responseStr)
-                    val results = json.optJSONArray("results")
-                    if (results != null) {
-                        for (i in 0 until results.length()) {
-                            val item = results.getJSONObject(i)
-                            val trackId = item.optLong("trackId", 0L).toString()
-                            val trackName = item.optString("trackName", "")
-                            val artistName = item.optString("artistName", "Unknown Artist")
-                            val collectionName = item.optString("collectionName", "")
+                val serverSearchUrl = "http://10.0.2.2:3456/api/search?q=$encoded&source=${if (isHindi) "youtube" else "auto"}&limit=50"
+                val sConn = (URL(serverSearchUrl).openConnection() as HttpURLConnection).apply {
+                    connectTimeout = 3000
+                    readTimeout = 3000
+                    requestMethod = "GET"
+                }
+                if (sConn.responseCode == 200) {
+                    val sText = sConn.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
+                    val sJson = JSONObject(sText)
+                    val tracksArr = sJson.optJSONArray("tracks")
+                    if (tracksArr != null) {
+                        for (i in 0 until tracksArr.length()) {
+                            val item = tracksArr.getJSONObject(i)
+                            val id = item.optString("id", "track-$i")
+                            val name = item.optString("name", "")
+                            val artist = item.optString("artist", "Unknown Artist")
+                            val album = item.optString("album", "Single")
+                            val durationFormatted = item.optString("durationFormatted", "3:30")
                             val previewUrl = item.optString("previewUrl", "")
-                            val artworkRaw = item.optString("artworkUrl100", "")
-                            val artworkHighRes = artworkRaw.replace("100x100bb.jpg", "400x400bb.jpg")
-                            val durationMs = item.optLong("trackTimeMillis", 180000L)
-                            val durationFormatted = formatDuration(durationMs)
-                            val songKey = "$artistName $trackName".trim().lowercase(Locale.ROOT)
-                            val knownYtId = youtubeIdCache.get(songKey)
+                            val artwork = item.optString("artwork", "")
+                            val youtubeId = item.optString("youtubeId", "")
+                            val durationSec = item.optLong("duration", 180L)
 
-                            if (trackName.isNotBlank() && previewUrl.isNotBlank()) {
+                            if (youtubeId.isNotBlank()) {
+                                val songKey = "$artist $name".trim().lowercase(Locale.ROOT)
+                                youtubeIdCache.put(songKey, youtubeId)
+                            }
+
+                            if (name.isNotBlank()) {
                                 liveSongs.add(
                                     Song(
-                                        id = trackId,
-                                        title = trackName,
-                                        artist = artistName,
-                                        album = collectionName,
+                                        id = id,
+                                        title = name,
+                                        artist = artist,
+                                        album = album,
                                         durationFormatted = durationFormatted,
-                                        audioUrl = previewUrl,
-                                        artworkUrl = artworkHighRes,
-                                        youtubeId = knownYtId,
-                                        durationMs = durationMs,
-                                    ),
+                                        audioUrl = if (previewUrl.isNotBlank()) previewUrl else "https://www.youtube.com/watch?v=$youtubeId",
+                                        artworkUrl = artwork,
+                                        youtubeId = if (youtubeId.isBlank()) null else youtubeId,
+                                        durationMs = durationSec * 1000L
+                                    )
                                 )
                             }
                         }
                     }
                 }
+                sConn.disconnect()
             } catch (e: Exception) {
-                // If offline or request fails, fall back to filtered curated hits
-                UbiTelemetryManager.log("desktop-find.searchFallback", "Offline fallback: ${e.message}", serpId)
-            } finally {
-                try { conn?.disconnect() } catch (e: Exception) {}
+                // Backend proxy error or running on device without host port-forwarding
+            }
+
+            // 2. Client-side fallback if backend returned nothing
+            if (liveSongs.isEmpty()) {
+                // If Hindi query or YouTube query, scrape YouTube directly for 100% playable tracks
+                if (isHindi || trimmed.contains("youtube", ignoreCase = true)) {
+                    val ytResults = searchYouTubeDirect(trimmed, 25)
+                    liveSongs.addAll(ytResults)
+                }
+
+                // Also query iTunes if not solely Devanagari Hindi
+                val isDevanagariOnly = trimmed.all { it in '\u0900'..'\u097F' || it.isWhitespace() }
+                if (!isDevanagariOnly) {
+                    var conn: HttpURLConnection? = null
+                    try {
+                        val searchUrl = "https://itunes.apple.com/search?term=$encoded&entity=song&limit=50"
+                        conn = URL(searchUrl).openConnection() as HttpURLConnection
+                        conn.connectTimeout = 3500
+                        conn.readTimeout = 3500
+                        conn.requestMethod = "GET"
+                        conn.useCaches = true
+                        conn.setRequestProperty("User-Agent", "Spotify-REA/1.305.3058.0 Android")
+                        conn.setRequestProperty("Accept-Encoding", "gzip")
+
+                        if (conn.responseCode == 200) {
+                            val encoding = conn.contentEncoding
+                            val inputStream = if (encoding != null && encoding.equals("gzip", ignoreCase = true)) {
+                                GZIPInputStream(conn.inputStream)
+                            } else {
+                                conn.inputStream
+                            }
+
+                            val reader = BufferedReader(InputStreamReader(inputStream, Charsets.UTF_8))
+                            val responseStr = reader.readText()
+                            reader.close()
+
+                            val json = JSONObject(responseStr)
+                            val results = json.optJSONArray("results")
+                            if (results != null) {
+                                for (i in 0 until results.length()) {
+                                    val item = results.getJSONObject(i)
+                                    val trackId = item.optLong("trackId", 0L).toString()
+                                    val trackName = item.optString("trackName", "")
+                                    val artistName = item.optString("artistName", "Unknown Artist")
+                                    val collectionName = item.optString("collectionName", "")
+                                    val previewUrl = item.optString("previewUrl", "")
+                                    val artworkRaw = item.optString("artworkUrl100", "")
+                                    val artworkHighRes = artworkRaw.replace("100x100bb.jpg", "400x400bb.jpg")
+                                    val durationMs = item.optLong("trackTimeMillis", 180000L)
+                                    val durationFormatted = formatDuration(durationMs)
+                                    val songKey = "$artistName $trackName".trim().lowercase(Locale.ROOT)
+                                    val knownYtId = youtubeIdCache.get(songKey)
+
+                                    if (trackName.isNotBlank() && previewUrl.isNotBlank()) {
+                                        liveSongs.add(
+                                            Song(
+                                                id = trackId,
+                                                title = trackName,
+                                                artist = artistName,
+                                                album = collectionName,
+                                                durationFormatted = durationFormatted,
+                                                audioUrl = previewUrl,
+                                                artworkUrl = artworkHighRes,
+                                                youtubeId = knownYtId,
+                                                durationMs = durationMs,
+                                            ),
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    } catch (e: Exception) {
+                        UbiTelemetryManager.log("desktop-find.searchFallback", "Offline fallback: ${e.message}", serpId)
+                    } finally {
+                        try { conn?.disconnect() } catch (e: Exception) {}
+                    }
+                }
             }
 
             val finalSongs = liveSongs.ifEmpty {
@@ -388,8 +598,7 @@ object SpotifySearchEngine {
                 serpId,
             )
 
-            mainHandler.post {
-                // Drop stale results if user typed a newer query while this network request was in-flight
+            postToMain {
                 if (trimmed == latestQuery) {
                     onResult(finalSongs)
                 }
@@ -454,13 +663,19 @@ object SpotifySearchEngine {
         return String.format(Locale.US, "%d:%02d", mins, secs)
     }
 
-    private val lyricsCache = object : LruCache<String, Pair<String?, String?>>(50) {}
+    private val lyricsCache = java.util.Collections.synchronizedMap(
+        object : java.util.LinkedHashMap<String, Pair<String?, String?>>(50, 0.75f, true) {
+            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Pair<String?, String?>>?): Boolean {
+                return size > 50
+            }
+        }
+    )
 
     fun fetchLyrics(track: String, artist: String, onResult: (syncedLyrics: String?, plainLyrics: String?) -> Unit) {
         val cacheKey = (artist + " - " + track).trim().lowercase(Locale.ROOT)
         val cached = lyricsCache.get(cacheKey)
         if (cached != null) {
-            mainHandler.post { onResult(cached.first, cached.second) }
+            postToMain { onResult(cached.first, cached.second) }
             return
         }
 
@@ -513,7 +728,7 @@ object SpotifySearchEngine {
                 lyricsCache.put(cacheKey, Pair(synced, plain))
             }
 
-            mainHandler.post {
+            postToMain {
                 onResult(synced, plain)
             }
         }

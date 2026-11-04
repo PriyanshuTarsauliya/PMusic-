@@ -284,8 +284,9 @@ object PlaybackManager {
             val pending = pendingVideoId
             if (!pending.isNullOrBlank()) {
                 pendingVideoId = null
+                val cleanPending = pending.replace(Regex("[^a-zA-Z0-9_-]"), "")
                 handler.post {
-                    webView?.evaluateJavascript("loadAndPlay('$pending');", null)
+                    webView?.evaluateJavascript("loadAndPlay('$cleanPending');", null)
                 }
             }
         }
@@ -571,11 +572,11 @@ object PlaybackManager {
             it.onPlaybackStateChanged(true)
         }
 
+        val cleanVideoId = videoId.replace(Regex("[^a-zA-Z0-9_-]"), "")
         if (!isYtReady) {
-            pendingVideoId = videoId
+            pendingVideoId = cleanVideoId
         }
 
-        val cleanVideoId = videoId.replace(Regex("[^a-zA-Z0-9_-]"), "")
         webView?.post {
             webView?.evaluateJavascript("loadAndPlay('$cleanVideoId');", null)
             if (playbackSpeed != 1.0f) {
@@ -887,6 +888,10 @@ object PlaybackManager {
             mediaPlayerLastTickTime = System.currentTimeMillis()
             mediaPlayer?.seekTo(positionMs % 30000)
         }
+    }
+
+    fun getAudioSessionId(): Int? {
+        return mediaPlayer?.audioSessionId
     }
 
     fun release() {

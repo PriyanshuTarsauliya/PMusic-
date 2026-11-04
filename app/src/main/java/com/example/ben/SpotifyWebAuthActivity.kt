@@ -71,7 +71,7 @@ class SpotifyWebAuthActivity : AppCompatActivity() {
                     
                     // If redirected back to app or authentic user account dashboard after login
                     val uri = url.toUri()
-                    val isSpotifyHost = uri.host?.endsWith("spotify.com") == true
+                    val isSpotifyHost = uri.host?.let { h -> h == "spotify.com" || h.endsWith(".spotify.com") } == true
                     if (url.startsWith(SPOTIFY_REDIRECT_URI) || (isSpotifyHost && (url.contains("accounts.spotify.com/status") || url.contains("/overview")))) {
                         handleLoginSuccess(url)
                         return true

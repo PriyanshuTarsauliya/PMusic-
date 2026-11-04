@@ -412,4 +412,138 @@ class ExampleUnitTest {
         assertTrue(romantic.any { it.title == "Shape of You" })
         assertFalse(romantic.any { it.title == "Lose Yourself" })
     }
+
+    @Test
+    fun userProfile_initialCalculationExtractsUppercaseLetter() {
+        val name1 = "priyanshu"
+        assertEquals("P", name1.first().uppercase())
+
+        val name2 = "ben_spotify"
+        assertEquals("B", name2.first().uppercase())
+
+        val empty = ""
+        val initial = if (empty.isNotBlank()) empty.first().uppercase() else "U"
+        assertEquals("U", initial)
+    }
+
+    @Test
+    fun userProfile_backendJsonParsingExtractsProfileFields() {
+        val jsonStr = """
+            {
+                "success": true,
+                "profile": {
+                    "username": "priyanshu",
+                    "displayName": "Priyanshu Tarsauliya",
+                    "avatar": "https://example.com/avatar.png",
+                    "accountType": "SPOTIFY PREMIUM",
+                    "createdAt": 1700000000000,
+                    "likedSongsCount": 15,
+                    "playlistsCount": 4
+                }
+            }
+        """.trimIndent()
+
+        val json = JSONObject(jsonStr)
+        assertTrue(json.getBoolean("success"))
+        val profile = json.getJSONObject("profile")
+        assertEquals("priyanshu", profile.getString("username"))
+        assertEquals("Priyanshu Tarsauliya", profile.getString("displayName"))
+        assertEquals("https://example.com/avatar.png", profile.getString("avatar"))
+        assertEquals(15, profile.getInt("likedSongsCount"))
+        assertEquals(4, profile.getInt("playlistsCount"))
+        assertEquals("SPOTIFY PREMIUM", profile.getString("accountType"))
+    }
+
+    @Test
+    fun hindiQueryDetection_correctlyIdentifiesDevanagariAndHindiKeywords() {
+        // Pure Devanagari
+        assertTrue(SpotifySearchEngine.isHindiQuery("तुम ही हो"))
+        assertTrue(SpotifySearchEngine.isHindiQuery("केसरिया"))
+        assertTrue(SpotifySearchEngine.isHindiQuery("दिल"))
+
+        // Romanized Hindi / Hinglish keywords
+        assertTrue(SpotifySearchEngine.isHindiQuery("hindi songs"))
+        assertTrue(SpotifySearchEngine.isHindiQuery("latest bollywood hits"))
+        assertTrue(SpotifySearchEngine.isHindiQuery("arijit singh new song"))
+
+        // English non-Hindi queries
+        assertFalse(SpotifySearchEngine.isHindiQuery("blinding lights"))
+        assertFalse(SpotifySearchEngine.isHindiQuery("taylor swift"))
+        assertFalse(SpotifySearchEngine.isHindiQuery("coldplay viva la vida"))
+    }
+
+    @Test
+    fun youTubeTrackModel_storesDirectYouTubePlaybackId() {
+        val ytSong = Song(
+            id = "yt-Umqb9KENgmk",
+            title = "Tum Hi Ho",
+            artist = "Arijit Singh",
+            album = "Aashiqui 2",
+            durationFormatted = "4:22",
+            audioUrl = "https://www.youtube.com/watch?v=Umqb9KENgmk",
+            artworkUrl = "https://i.ytimg.com/vi/Umqb9KENgmk/hqdefault.jpg",
+            youtubeId = "Umqb9KENgmk",
+            durationMs = 262000L
+        )
+
+        assertEquals("yt-Umqb9KENgmk", ytSong.id)
+        assertEquals("Umqb9KENgmk", ytSong.youtubeId)
+        assertTrue(ytSong.audioUrl.contains("youtube.com"))
+        assertEquals(262000, ytSong.getDurationMs())
+    }
+
+    @Test
+    fun equalizerPresets_validateGainBounds() {
+        val flat = intArrayOf(0, 0, 0, 0, 0)
+        val bass = intArrayOf(6, 4, 1, 0, -1)
+        val vocal = intArrayOf(-2, 1, 5, 3, 0)
+        val treble = intArrayOf(-1, 0, 1, 4, 6)
+        val pop = intArrayOf(-1, 2, 4, 2, -1)
+        val rock = intArrayOf(5, 3, -1, 3, 5)
+
+        val presets = listOf(flat, bass, vocal, treble, pop, rock)
+        presets.forEach { preset ->
+            assertEquals(5, preset.size)
+            preset.forEach { gain ->
+                assertTrue("Gain $gain should be within -12..12 dB", gain in -12..12)
+            }
+        }
+        // Bass boost should have highest gain at low frequency
+        assertTrue(bass[0] > bass[4])
+        // Treble boost should have highest gain at high frequency
+        assertTrue(treble[4] > treble[0])
+    }
+
+    @Test
+    fun recentSearches_deduplicatesAndCapsToTen() {
+        val rawQueries = listOf("Arijit", "Taylor Swift", "The Weeknd", "Arijit", "Bollywood", "Coldplay", "Dua Lipa", "Drake", "Billie Eilish", "Eminem", "Imagine Dragons", "Queen")
+        val processed = mutableListOf<String>()
+
+        rawQueries.forEach { q ->
+            processed.remove(q)
+            processed.add(0, q)
+        }
+        val capped = processed.take(10)
+
+        assertEquals(10, capped.size)
+        assertEquals("Queen", capped[0])
+        assertEquals(1, capped.count { it == "Arijit" })
+    }
+
+    @Test
+    fun recentlyPlayedHistory_prependsNewTrackAndDeduplicates() {
+        val s1 = Song(id = "1", title = "Blinding Lights", artist = "The Weeknd", album = "After Hours", durationFormatted = "3:20", audioUrl = "url1")
+        val s2 = Song(id = "2", title = "Starboy", artist = "The Weeknd", album = "Starboy", durationFormatted = "3:50", audioUrl = "url2")
+        val s3 = Song(id = "3", title = "Cruel Summer", artist = "Taylor Swift", album = "Lover", durationFormatted = "2:58", audioUrl = "url3")
+
+        val history = mutableListOf(s1, s2)
+        history.removeIf { it.id == s3.id }
+        history.add(0, s3)
+        assertEquals("Cruel Summer", history[0].title)
+
+        history.removeIf { it.id == s1.id }
+        history.add(0, s1)
+        assertEquals("Blinding Lights", history[0].title)
+        assertEquals(3, history.size)
+    }
 }

@@ -107,6 +107,11 @@ class NowPlayingBottomSheet : BottomSheetDialogFragment(), PlaybackManager.Playb
             showQueueDialog()
         }
 
+        // Equalizer Dialog
+        binding.btnNowPlayingEqualizer.setOnClickListener {
+            EqualizerBottomSheet.newInstance().show(parentFragmentManager, EqualizerBottomSheet.TAG)
+        }
+
         // Sleep Timer
         binding.btnNowPlayingMore.setOnClickListener {
             showSleepTimerDialog()

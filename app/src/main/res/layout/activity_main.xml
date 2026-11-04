@@ -16,17 +16,38 @@
         android:paddingBottom="10dp"
         app:layout_constraintTop_toTopOf="parent">
 
-        <ImageView
-            android:id="@+id/imgUserAvatar"
+        <FrameLayout
+            android:id="@+id/btnUserProfile"
             android:layout_width="40dp"
             android:layout_height="40dp"
-            android:background="@drawable/bg_spotify_button"
-            android:padding="8dp"
-            android:src="@drawable/ic_spotify_logo"
+            android:background="@drawable/bg_profile_avatar"
+            android:clickable="true"
+            android:focusable="true"
+            android:foreground="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="User Profile"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent"
-            app:tint="@color/black" />
+            app:layout_constraintTop_toTopOf="parent">
+
+            <ImageView
+                android:id="@+id/imgUserAvatar"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:padding="9dp"
+                android:src="@drawable/ic_profile"
+                android:visibility="gone"
+                app:tint="@color/spotify_white" />
+
+            <TextView
+                android:id="@+id/tvUserAvatarInitial"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:gravity="center"
+                android:text="U"
+                android:textColor="@color/spotify_white"
+                android:textSize="18sp"
+                android:textStyle="bold" />
+        </FrameLayout>
 
         <LinearLayout
             android:layout_width="0dp"
@@ -36,7 +57,7 @@
             android:orientation="horizontal"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toStartOf="@id/btnFeedback"
-            app:layout_constraintStart_toEndOf="@id/imgUserAvatar"
+            app:layout_constraintStart_toEndOf="@id/btnUserProfile"
             app:layout_constraintTop_toTopOf="parent">
 
             <Button
@@ -869,6 +890,16 @@
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:src="@drawable/ic_logout"
                 android:visibility="gone" />
+
+            <ImageButton
+                android:id="@+id/btnSearchMic"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:layout_marginStart="4dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Voice Search"
+                android:src="@drawable/ic_mic"
+                app:tint="@color/spotify_white" />
         </LinearLayout>
 
         <!-- Scrollable Search Results Viewport -->
@@ -910,6 +941,34 @@
                             android:paddingEnd="16dp"
                             android:text="All"
                             android:textColor="@color/black"
+                            android:textSize="12sp"
+                            android:textStyle="bold"
+                            app:backgroundTint="@null" />
+
+                        <Button
+                            android:id="@+id/chipYouTube"
+                            android:layout_width="wrap_content"
+                            android:layout_height="36dp"
+                            android:layout_marginEnd="8dp"
+                            android:background="@drawable/bg_spotify_button_outlined"
+                            android:paddingStart="16dp"
+                            android:paddingEnd="16dp"
+                            android:text="▶️ YouTube"
+                            android:textColor="@color/spotify_white"
+                            android:textSize="12sp"
+                            android:textStyle="bold"
+                            app:backgroundTint="@null" />
+
+                        <Button
+                            android:id="@+id/chipHindi"
+                            android:layout_width="wrap_content"
+                            android:layout_height="36dp"
+                            android:layout_marginEnd="8dp"
+                            android:background="@drawable/bg_spotify_button_outlined"
+                            android:paddingStart="16dp"
+                            android:paddingEnd="16dp"
+                            android:text="🇮🇳 Hindi Hits"
+                            android:textColor="@color/spotify_white"
                             android:textSize="12sp"
                             android:textStyle="bold"
                             app:backgroundTint="@null" />
@@ -1012,6 +1071,60 @@
                             app:backgroundTint="@null" />
                     </LinearLayout>
                 </HorizontalScrollView>
+
+                <!-- Recent Searches Shelf (visible when search bar is idle/empty) -->
+                <LinearLayout
+                    android:id="@+id/layoutRecentSearches"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="16dp"
+                    android:layout_marginTop="18dp"
+                    android:layout_marginEnd="16dp"
+                    android:orientation="vertical"
+                    android:visibility="gone">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Recent searches"
+                            android:textColor="@color/spotify_white"
+                            android:textSize="18sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/btnClearRecentSearches"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:background="?attr/selectableItemBackgroundBorderless"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:padding="6dp"
+                            android:text="Clear all"
+                            android:textColor="@color/spotify_subdued"
+                            android:textSize="13sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+
+                    <HorizontalScrollView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:scrollbars="none">
+
+                        <LinearLayout
+                            android:id="@+id/containerRecentSearchChips"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal" />
+                    </HorizontalScrollView>
+                </LinearLayout>
 
                 <!-- Top Result Card -->
                 <TextView
@@ -1220,6 +1333,37 @@
                 android:layout_marginEnd="16dp"
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
+
+                <FrameLayout
+                    android:id="@+id/btnLibraryUserProfile"
+                    android:layout_width="34dp"
+                    android:layout_height="34dp"
+                    android:layout_marginEnd="12dp"
+                    android:background="@drawable/bg_profile_avatar"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:foreground="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="User Profile">
+
+                    <ImageView
+                        android:id="@+id/imgLibraryUserAvatar"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:padding="7dp"
+                        android:src="@drawable/ic_profile"
+                        android:visibility="gone"
+                        app:tint="@color/spotify_white" />
+
+                    <TextView
+                        android:id="@+id/tvLibraryUserAvatarInitial"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:gravity="center"
+                        android:text="U"
+                        android:textColor="@color/spotify_white"
+                        android:textSize="15sp"
+                        android:textStyle="bold" />
+                </FrameLayout>
 
                 <TextView
                     android:layout_width="0dp"

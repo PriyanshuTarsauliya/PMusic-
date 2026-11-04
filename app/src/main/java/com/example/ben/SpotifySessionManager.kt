@@ -14,15 +14,30 @@ class SpotifySessionManager(context: Context) {
         private const val KEY_DISPLAY_NAME = "display_name"
         private const val KEY_ACCOUNT_TYPE = "account_type"
         private const val KEY_AUTH_TOKEN = "auth_token"
+        private const val KEY_AVATAR = "avatar"
     }
 
-    fun saveLogin(userId: String, displayName: String, accountType: String = "SPOTIFY PREMIUM", token: String = "") {
+    fun saveLogin(
+        userId: String,
+        displayName: String,
+        accountType: String = "SPOTIFY PREMIUM",
+        token: String = "",
+        avatar: String = ""
+    ) {
         prefs.edit {
             putBoolean(KEY_IS_LOGGED_IN, true)
             putString(KEY_USER_ID, userId)
             putString(KEY_DISPLAY_NAME, displayName)
             putString(KEY_ACCOUNT_TYPE, accountType)
             putString(KEY_AUTH_TOKEN, token)
+            putString(KEY_AVATAR, avatar)
+        }
+    }
+
+    fun saveProfile(displayName: String, avatar: String = "") {
+        prefs.edit {
+            if (displayName.isNotBlank()) putString(KEY_DISPLAY_NAME, displayName)
+            if (avatar.isNotBlank()) putString(KEY_AVATAR, avatar)
         }
     }
 
@@ -44,6 +59,8 @@ class SpotifySessionManager(context: Context) {
     fun getAccountType(): String = prefs.getString(KEY_ACCOUNT_TYPE, "SPOTIFY PREMIUM") ?: "SPOTIFY PREMIUM"
 
     fun getAuthToken(): String = prefs.getString(KEY_AUTH_TOKEN, "") ?: ""
+
+    fun getAvatar(): String = prefs.getString(KEY_AVATAR, "") ?: ""
 
     fun logout() {
         prefs.edit { clear() }

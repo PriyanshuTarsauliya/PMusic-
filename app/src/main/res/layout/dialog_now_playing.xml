@@ -87,6 +87,17 @@
                 android:contentDescription="Playback Speed" />
 
             <ImageButton
+                android:id="@+id/btnNowPlayingEqualizer"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:layout_marginEnd="4dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Equalizer"
+                android:src="@drawable/ic_equalizer"
+                android:visibility="visible"
+                app:tint="@color/spotify_white" />
+
+            <ImageButton
                 android:id="@+id/btnNowPlayingMore"
                 android:layout_width="36dp"
                 android:layout_height="36dp"

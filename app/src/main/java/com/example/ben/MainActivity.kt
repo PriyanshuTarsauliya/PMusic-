@@ -1,9 +1,13 @@
 package com.example.ben
 
+import android.app.Activity
+import android.content.ActivityNotFoundException
+import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.speech.RecognizerIntent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
@@ -13,6 +17,7 @@ import android.widget.LinearLayout
 import android.widget.SeekBar
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.widget.doOnTextChanged
@@ -26,6 +31,20 @@ class MainActivity : AppCompatActivity(), PlaybackManager.PlaybackListener {
     private lateinit var sessionManager: SpotifySessionManager
     private lateinit var songAdapter: SongAdapter
     private lateinit var homeSongAdapter: SongAdapter
+
+    private val voiceSearchLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK && result.data != null) {
+            val spokenText = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
+            if (!spokenText.isNullOrBlank()) {
+                binding.etSearch.setText(spokenText)
+                binding.etSearch.setSelection(spokenText.length)
+                performLiveSearch(spokenText)
+                Toast.makeText(this, "Searching: $spokenText", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
 
     private var currentFilteredSongs = SpotifySearchEngine.defaultCuratedSongs.toList()
     private var displayedSongs = SpotifySearchEngine.defaultCuratedSongs.toList()
@@ -94,12 +113,45 @@ class MainActivity : AppCompatActivity(), PlaybackManager.PlaybackListener {
         ImageLoader.preload(SpotifySearchEngine.defaultCuratedSongs.take(8).map { it.artworkUrl })
     }
 
+    fun updateUserProfileUI() {
+        val displayName = sessionManager.getDisplayName()
+        val initial = if (displayName.isNotBlank()) displayName.first().uppercase() else "U"
+        binding.tvUserAvatarInitial.text = initial
+        binding.tvLibraryUserAvatarInitial.text = initial
+        binding.tvUserGreeting.text = getString(R.string.user_greeting, displayName)
+    }
+
+    fun performLogout() {
+        sessionManager.logout()
+        PlaybackManager.release()
+        UbiTelemetryManager.log("hitLogout", "User logged out")
+        Toast.makeText(this, "Logged out of Spotify", Toast.LENGTH_SHORT).show()
+        startActivity(Intent(this, LoginActivity::class.java))
+        finish()
+    }
+
     private fun setupUserHeader() {
         val displayName = sessionManager.getDisplayName()
         val accountType = sessionManager.getAccountType()
 
         binding.tvUserGreeting.text = getString(R.string.user_greeting, displayName)
         binding.tvAccountBadge.text = accountType
+        updateUserProfileUI()
+
+        // Profile Avatar Click -> Opens Profile Bottom Sheet
+        binding.btnUserProfile.setOnClickListener {
+            UbiTelemetryManager.log("hitProfileOpen", "User opened Spotify Profile sheet from Home")
+            ProfileBottomSheet.newInstance().show(supportFragmentManager, ProfileBottomSheet.TAG)
+        }
+
+        // Library Tab Profile Avatar Click -> Opens Profile Bottom Sheet
+        binding.btnLibraryUserProfile.setOnClickListener {
+            UbiTelemetryManager.log("hitProfileOpen", "User opened Spotify Profile sheet from Library")
+            ProfileBottomSheet.newInstance().show(supportFragmentManager, ProfileBottomSheet.TAG)
+        }
+
+        // Synchronize latest profile in background from backend
+        syncProfileFromBackend()
 
         // Open Feedback & Excel Exporter Dialog
         binding.btnFeedback.setOnClickListener {
@@ -114,12 +166,40 @@ class MainActivity : AppCompatActivity(), PlaybackManager.PlaybackListener {
         }
 
         binding.btnLogout.setOnClickListener {
-            sessionManager.logout()
-            PlaybackManager.release()
-            UbiTelemetryManager.log("hitLogout", "User logged out")
-            Toast.makeText(this, "Logged out of Spotify", Toast.LENGTH_SHORT).show()
-            startActivity(Intent(this, LoginActivity::class.java))
-            finish()
+            performLogout()
+        }
+    }
+
+    private fun syncProfileFromBackend() {
+        val token = sessionManager.getAuthToken()
+        if (token.isBlank()) return
+
+        java.util.concurrent.Executors.newSingleThreadExecutor().execute {
+            try {
+                val url = java.net.URL("http://10.0.2.2:3456/api/user/profile")
+                val conn = (url.openConnection() as java.net.HttpURLConnection).apply {
+                    requestMethod = "GET"
+                    connectTimeout = 3000
+                    readTimeout = 3000
+                    setRequestProperty("Authorization", "Bearer $token")
+                }
+                if (conn.responseCode == 200) {
+                    val response = conn.inputStream.bufferedReader().use { it.readText() }
+                    val json = org.json.JSONObject(response)
+                    val profile = json.optJSONObject("profile")
+                    if (profile != null) {
+                        val backendName = profile.optString("displayName", "")
+                        val backendAvatar = profile.optString("avatar", "")
+                        if (backendName.isNotBlank()) {
+                            sessionManager.saveProfile(backendName, backendAvatar)
+                            runOnUiThread { updateUserProfileUI() }
+                        }
+                    }
+                }
+                conn.disconnect()
+            } catch (e: Exception) {
+                // Offline fallback
+            }
         }
     }
 
@@ -363,31 +443,8 @@ class MainActivity : AppCompatActivity(), PlaybackManager.PlaybackListener {
             }
         }
 
-        // Recently Played Carousel Cards
-        if (curated.isNotEmpty()) {
-            binding.tvRecentTitle1.text = curated[0].title
-            binding.tvRecentArtist1.text = curated[0].artist
-            ImageLoader.load(curated[0].artworkUrl, binding.imgRecent1)
-            binding.cardRecent1.setOnClickListener { PlaybackManager.setQueueAndPlay(curated, 0) }
-        }
-        if (curated.size > 1) {
-            binding.tvRecentTitle2.text = curated[1].title
-            binding.tvRecentArtist2.text = curated[1].artist
-            ImageLoader.load(curated[1].artworkUrl, binding.imgRecent2)
-            binding.cardRecent2.setOnClickListener { PlaybackManager.setQueueAndPlay(curated, 1) }
-        }
-        if (curated.size > 2) {
-            binding.tvRecentTitle3.text = curated[2].title
-            binding.tvRecentArtist3.text = curated[2].artist
-            ImageLoader.load(curated[2].artworkUrl, binding.imgRecent3)
-            binding.cardRecent3.setOnClickListener { PlaybackManager.setQueueAndPlay(curated, 2) }
-        }
-        if (curated.size > 5) {
-            binding.tvRecentTitle4.text = curated[5].title
-            binding.tvRecentArtist4.text = curated[5].artist
-            ImageLoader.load(curated[5].artworkUrl, binding.imgRecent4)
-            binding.cardRecent4.setOnClickListener { PlaybackManager.setQueueAndPlay(curated, 5) }
-        }
+        // Recently Played Carousel Cards (Dynamic listening history)
+        renderRecentCarousel()
 
         // Home song recommendations list
         homeSongAdapter = SongAdapter(
@@ -436,9 +493,16 @@ class MainActivity : AppCompatActivity(), PlaybackManager.PlaybackListener {
     // TAB 2: SEARCH VIEW
     // ==========================================================
     private fun setupSearch() {
+        renderRecentSearches()
+
         binding.etSearch.doOnTextChanged { text, _, _, _ ->
             val query = text?.toString()?.trim().orEmpty()
             binding.btnClearSearch.visibility = if (query.isNotEmpty()) View.VISIBLE else View.GONE
+            if (query.isEmpty()) {
+                renderRecentSearches()
+            } else {
+                binding.layoutRecentSearches.visibility = View.GONE
+            }
 
             searchRunnable?.let { searchHandler.removeCallbacks(it) }
             searchRunnable = Runnable {
@@ -449,13 +513,39 @@ class MainActivity : AppCompatActivity(), PlaybackManager.PlaybackListener {
 
         binding.btnClearSearch.setOnClickListener {
             binding.etSearch.text.clear()
+            renderRecentSearches()
+        }
+
+        binding.btnClearRecentSearches.setOnClickListener {
+            clearRecentSearches()
+        }
+
+        binding.btnSearchMic.setOnClickListener {
+            val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE, "hi-IN")
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, "hi-IN")
+                putExtra(RecognizerIntent.EXTRA_ONLY_RETURN_LANGUAGE_PREFERENCE, false)
+                putExtra(RecognizerIntent.EXTRA_SUPPORTED_LANGUAGES, arrayListOf("hi-IN", "en-IN", "en-US"))
+                putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak now in Hindi or English (बोलिए)...")
+            }
+            try {
+                voiceSearchLauncher.launch(intent)
+            } catch (e: ActivityNotFoundException) {
+                Toast.makeText(this, "Voice recognition is not supported on this device", Toast.LENGTH_SHORT).show()
+            }
         }
     }
 
     private fun performLiveSearch(query: String) {
+        val trimmed = query.trim()
+        if (trimmed.isNotEmpty()) {
+            saveRecentSearch(trimmed)
+        }
+
         binding.searchProgressBar.visibility = View.VISIBLE
 
-        SpotifySearchEngine.search(query) { results ->
+        SpotifySearchEngine.search(trimmed) { results ->
             binding.searchProgressBar.visibility = View.GONE
             currentFilteredSongs = results
             applyCategoryFilter()
@@ -465,6 +555,8 @@ class MainActivity : AppCompatActivity(), PlaybackManager.PlaybackListener {
     private fun setupCategoryChips() {
         val chips = listOf(
             binding.chipAll,
+            binding.chipYouTube,
+            binding.chipHindi,
             binding.chipTopSongs,
             binding.chipRomantic,
             binding.chipSongs,
@@ -486,6 +578,13 @@ class MainActivity : AppCompatActivity(), PlaybackManager.PlaybackListener {
                 }
                 activeCategory = (selected as? Button)?.text?.toString() ?: "All"
                 UbiTelemetryManager.log("categoryFilterSelected", "Category: $activeCategory")
+
+                if (activeCategory.contains("YouTube", true) && binding.etSearch.text.isNullOrBlank()) {
+                    binding.etSearch.setText("Trending Music Hits")
+                } else if (activeCategory.contains("Hindi", true) && binding.etSearch.text.isNullOrBlank()) {
+                    binding.etSearch.setText("Bollywood Hindi Hits")
+                }
+
                 applyCategoryFilter()
             }
         }
@@ -493,6 +592,26 @@ class MainActivity : AppCompatActivity(), PlaybackManager.PlaybackListener {
 
     private fun applyCategoryFilter() {
         val filtered = when {
+            activeCategory.contains("YouTube", true) -> {
+                val yts = currentFilteredSongs.filter { it.youtubeId != null || it.id.startsWith("yt-") }
+                if (yts.isNotEmpty()) yts else currentFilteredSongs
+            }
+            activeCategory.contains("Hindi", true) -> {
+                val hindiList = currentFilteredSongs.filter { s ->
+                    val combined = "${s.title} ${s.artist} ${s.album}"
+                    combined.any { it in '\u0900'..'\u097F' } ||
+                    combined.contains("hindi", true) ||
+                    combined.contains("bollywood", true) ||
+                    combined.contains("arijit", true) ||
+                    combined.contains("shreya", true) ||
+                    combined.contains("atif", true) ||
+                    combined.contains("jubin", true) ||
+                    combined.contains("badshah", true) ||
+                    combined.contains("sonu", true) ||
+                    combined.contains("kishore", true)
+                }
+                if (hindiList.isNotEmpty()) hindiList else currentFilteredSongs
+            }
             activeCategory.contains("Top Songs", true) -> currentFilteredSongs.sortedByDescending { it.popularity }
             activeCategory.contains("Romantic", true) -> getRomanticSongs(currentFilteredSongs)
             activeCategory.contains("Pop", true) -> currentFilteredSongs.filter { it.popularity >= 93 || it.artist.contains("Dua", true) || it.artist.contains("Taylor", true) }
@@ -631,15 +750,18 @@ class MainActivity : AppCompatActivity(), PlaybackManager.PlaybackListener {
         val libChips = listOf(binding.chipLibPlaylists, binding.chipLibArtists, binding.chipLibAlbums, binding.chipLibDownloaded)
         libChips.forEach { chip ->
             chip.setOnClickListener { selected ->
+                var selectedCategory = "All"
                 libChips.forEach { c ->
                     if (c == selected) {
                         c.background = ContextCompat.getDrawable(this, R.drawable.bg_spotify_button)
                         c.setTextColor(ContextCompat.getColor(this, R.color.black))
+                        selectedCategory = (selected as? Button)?.text?.toString() ?: "All"
                     } else {
                         c.background = ContextCompat.getDrawable(this, R.drawable.bg_spotify_button_outlined)
                         c.setTextColor(ContextCompat.getColor(this, R.color.spotify_white))
                     }
                 }
+                applyLibraryFilter(selectedCategory)
             }
         }
 
@@ -790,6 +912,56 @@ class MainActivity : AppCompatActivity(), PlaybackManager.PlaybackListener {
         dialog.show()
     }
 
+    private fun applyLibraryFilter(category: String) {
+        when (category) {
+            "Playlists" -> {
+                binding.cardLikedSongs.visibility = View.VISIBLE
+                binding.rowLibTopHits.visibility = View.VISIBLE
+                binding.rowLibDailyMix.visibility = View.VISIBLE
+                binding.layoutCustomPlaylists.visibility = View.VISIBLE
+                binding.tvCustomPlaylistsHeader.visibility = View.VISIBLE
+                binding.rowLibArtistWeeknd.visibility = View.GONE
+                binding.rowLibArtistBillie.visibility = View.GONE
+            }
+            "Artists" -> {
+                binding.cardLikedSongs.visibility = View.GONE
+                binding.rowLibTopHits.visibility = View.GONE
+                binding.rowLibDailyMix.visibility = View.GONE
+                binding.layoutCustomPlaylists.visibility = View.GONE
+                binding.tvCustomPlaylistsHeader.visibility = View.GONE
+                binding.rowLibArtistWeeknd.visibility = View.VISIBLE
+                binding.rowLibArtistBillie.visibility = View.VISIBLE
+            }
+            "Albums" -> {
+                binding.cardLikedSongs.visibility = View.GONE
+                binding.rowLibTopHits.visibility = View.VISIBLE
+                binding.rowLibDailyMix.visibility = View.VISIBLE
+                binding.layoutCustomPlaylists.visibility = View.GONE
+                binding.tvCustomPlaylistsHeader.visibility = View.GONE
+                binding.rowLibArtistWeeknd.visibility = View.GONE
+                binding.rowLibArtistBillie.visibility = View.GONE
+            }
+            "Downloaded" -> {
+                binding.cardLikedSongs.visibility = View.VISIBLE
+                binding.rowLibTopHits.visibility = View.VISIBLE
+                binding.rowLibDailyMix.visibility = View.GONE
+                binding.layoutCustomPlaylists.visibility = View.VISIBLE
+                binding.tvCustomPlaylistsHeader.visibility = View.VISIBLE
+                binding.rowLibArtistWeeknd.visibility = View.GONE
+                binding.rowLibArtistBillie.visibility = View.GONE
+            }
+            else -> {
+                binding.cardLikedSongs.visibility = View.VISIBLE
+                binding.rowLibTopHits.visibility = View.VISIBLE
+                binding.rowLibDailyMix.visibility = View.VISIBLE
+                binding.layoutCustomPlaylists.visibility = View.VISIBLE
+                binding.tvCustomPlaylistsHeader.visibility = View.VISIBLE
+                binding.rowLibArtistWeeknd.visibility = View.VISIBLE
+                binding.rowLibArtistBillie.visibility = View.VISIBLE
+            }
+        }
+    }
+
     private fun showTrackOptionsDialog(song: Song) {
         val context = this
         val likeLabel = if (song.isLiked) "Remove from Liked Songs" else "Save to your Liked Songs"
@@ -797,6 +969,7 @@ class MainActivity : AppCompatActivity(), PlaybackManager.PlaybackListener {
             "Add to Playlist",
             "Add to Queue",
             "Play Next",
+            "Equalizer & Audio FX",
             likeLabel
         )
 
@@ -814,6 +987,9 @@ class MainActivity : AppCompatActivity(), PlaybackManager.PlaybackListener {
                         Toast.makeText(context, "\"${song.title}\" will play next", Toast.LENGTH_SHORT).show()
                     }
                     3 -> {
+                        EqualizerBottomSheet.newInstance().show(supportFragmentManager, EqualizerBottomSheet.TAG)
+                    }
+                    4 -> {
                         UserLibraryManager.toggleLike(song, sessionManager.getAuthToken()) {
                             Toast.makeText(context, if (song.isLiked) "Saved to Liked Songs" else "Removed from Liked Songs", Toast.LENGTH_SHORT).show()
                             updateLikedSongsCount()
@@ -969,6 +1145,172 @@ class MainActivity : AppCompatActivity(), PlaybackManager.PlaybackListener {
     }
 
     // ==========================================================
+    // RECENT SEARCHES & LISTENING HISTORY PERSISTENCE
+    // ==========================================================
+    private fun getRecentSearches(): List<String> {
+        val raw = getSharedPreferences("pmusic_search_prefs", Context.MODE_PRIVATE)
+            .getString("recent_queries", "[]") ?: "[]"
+        val list = mutableListOf<String>()
+        try {
+            val jsonArr = org.json.JSONArray(raw)
+            for (i in 0 until jsonArr.length()) {
+                val str = jsonArr.optString(i, "")
+                if (str.isNotBlank()) list.add(str)
+            }
+        } catch (_: Exception) {}
+        return list
+    }
+
+    private fun saveRecentSearch(query: String) {
+        val trimmed = query.trim()
+        if (trimmed.isBlank()) return
+        val current = getRecentSearches().toMutableList()
+        current.remove(trimmed)
+        current.add(0, trimmed)
+        val capped = current.take(10)
+        val jsonArr = org.json.JSONArray(capped)
+        getSharedPreferences("pmusic_search_prefs", Context.MODE_PRIVATE)
+            .edit()
+            .putString("recent_queries", jsonArr.toString())
+            .apply()
+    }
+
+    private fun clearRecentSearches() {
+        getSharedPreferences("pmusic_search_prefs", Context.MODE_PRIVATE)
+            .edit()
+            .remove("recent_queries")
+            .apply()
+        renderRecentSearches()
+        Toast.makeText(this, "Recent searches cleared", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun renderRecentSearches() {
+        val searches = getRecentSearches()
+        if (binding.etSearch.text.isNullOrBlank() && searches.isNotEmpty()) {
+            binding.layoutRecentSearches.visibility = View.VISIBLE
+            binding.containerRecentSearchChips.removeAllViews()
+
+            val context = this
+            searches.forEach { q ->
+                val chip = Button(context).apply {
+                    layoutParams = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.WRAP_CONTENT,
+                        (36 * resources.displayMetrics.density).toInt()
+                    ).apply {
+                        marginEnd = (8 * resources.displayMetrics.density).toInt()
+                    }
+                    background = ContextCompat.getDrawable(context, R.drawable.bg_spotify_button_outlined)
+                    setPadding(
+                        (14 * resources.displayMetrics.density).toInt(),
+                        0,
+                        (14 * resources.displayMetrics.density).toInt(),
+                        0
+                    )
+                    text = "🔍 $q"
+                    setTextColor(ContextCompat.getColor(context, R.color.spotify_white))
+                    textSize = 12f
+                    isAllCaps = false
+                    backgroundTintList = null
+
+                    setOnClickListener {
+                        binding.etSearch.setText(q)
+                        binding.etSearch.setSelection(q.length)
+                        performLiveSearch(q)
+                    }
+                }
+                binding.containerRecentSearchChips.addView(chip)
+            }
+        } else {
+            binding.layoutRecentSearches.visibility = View.GONE
+        }
+    }
+
+    private fun getRecentlyPlayed(): List<Song> {
+        val raw = getSharedPreferences("pmusic_history_prefs", Context.MODE_PRIVATE)
+            .getString("recently_played_songs", "[]") ?: "[]"
+        val list = mutableListOf<Song>()
+        try {
+            val jsonArr = org.json.JSONArray(raw)
+            for (i in 0 until jsonArr.length()) {
+                val obj = jsonArr.optJSONObject(i) ?: continue
+                val s = Song(
+                    id = obj.optString("id", ""),
+                    title = obj.optString("title", ""),
+                    artist = obj.optString("artist", "Unknown Artist"),
+                    album = obj.optString("album", "Single"),
+                    durationFormatted = obj.optString("durationFormatted", "3:30"),
+                    audioUrl = obj.optString("audioUrl", ""),
+                    artworkUrl = obj.optString("artworkUrl", ""),
+                    isLiked = obj.optBoolean("isLiked", false),
+                    youtubeId = obj.optString("youtubeId", "").takeIf { it.isNotBlank() },
+                    durationMs = obj.optLong("durationMs", 180000L),
+                    popularity = obj.optInt("popularity", 90)
+                )
+                if (s.title.isNotBlank()) list.add(s)
+            }
+        } catch (_: Exception) {}
+        return if (list.isNotEmpty()) list else SpotifySearchEngine.defaultCuratedSongs
+    }
+
+    private fun saveRecentlyPlayed(song: Song) {
+        val list = getRecentlyPlayed().filter { it.title != song.title }.toMutableList()
+        list.add(0, song)
+        val capped = list.take(10)
+        val jsonArr = org.json.JSONArray()
+        capped.forEach { s ->
+            val obj = org.json.JSONObject().apply {
+                put("id", s.id)
+                put("title", s.title)
+                put("artist", s.artist)
+                put("album", s.album)
+                put("durationFormatted", s.durationFormatted)
+                put("audioUrl", s.audioUrl)
+                put("artworkUrl", s.artworkUrl)
+                put("isLiked", s.isLiked)
+                put("youtubeId", s.youtubeId ?: "")
+                put("durationMs", s.getDurationMs())
+                put("popularity", s.popularity)
+            }
+            jsonArr.put(obj)
+        }
+        getSharedPreferences("pmusic_history_prefs", Context.MODE_PRIVATE)
+            .edit()
+            .putString("recently_played_songs", jsonArr.toString())
+            .apply()
+        runOnUiThread {
+            renderRecentCarousel()
+        }
+    }
+
+    private fun renderRecentCarousel() {
+        val recent = getRecentlyPlayed()
+        if (recent.isNotEmpty()) {
+            binding.tvRecentTitle1.text = recent[0].title
+            binding.tvRecentArtist1.text = recent[0].artist
+            ImageLoader.load(recent[0].artworkUrl, binding.imgRecent1)
+            binding.cardRecent1.setOnClickListener { PlaybackManager.setQueueAndPlay(recent, 0) }
+        }
+        if (recent.size > 1) {
+            binding.tvRecentTitle2.text = recent[1].title
+            binding.tvRecentArtist2.text = recent[1].artist
+            ImageLoader.load(recent[1].artworkUrl, binding.imgRecent2)
+            binding.cardRecent2.setOnClickListener { PlaybackManager.setQueueAndPlay(recent, 1) }
+        }
+        if (recent.size > 2) {
+            binding.tvRecentTitle3.text = recent[2].title
+            binding.tvRecentArtist3.text = recent[2].artist
+            ImageLoader.load(recent[2].artworkUrl, binding.imgRecent3)
+            binding.cardRecent3.setOnClickListener { PlaybackManager.setQueueAndPlay(recent, 2) }
+        }
+        if (recent.size > 3) {
+            binding.tvRecentTitle4.text = recent[3].title
+            binding.tvRecentArtist4.text = recent[3].artist
+            ImageLoader.load(recent[3].artworkUrl, binding.imgRecent4)
+            binding.cardRecent4.setOnClickListener { PlaybackManager.setQueueAndPlay(recent, 3) }
+        }
+    }
+
+    // ==========================================================
     // PlaybackListener Callbacks
     // ==========================================================
     override fun onSongChanged(song: Song) {
@@ -985,6 +1327,7 @@ class MainActivity : AppCompatActivity(), PlaybackManager.PlaybackListener {
             homeSongAdapter.notifyDataSetChanged()
         }
         UbiTelemetryManager.log("hitTrackPlayback", "${song.title} by ${song.artist}")
+        saveRecentlyPlayed(song)
     }
 
     override fun onPlaybackStateChanged(isPlaying: Boolean) {
