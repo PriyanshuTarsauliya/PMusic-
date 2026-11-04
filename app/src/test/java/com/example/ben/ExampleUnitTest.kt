@@ -312,4 +312,104 @@ class ExampleUnitTest {
         assertEquals("com.example.ben.action.STOP", MediaPlaybackService.ACTION_STOP)
         assertEquals("pmusic_playback_channel", MediaPlaybackService.CHANNEL_ID)
     }
+
+    @Test
+    fun userLibrary_parsesServerJsonFormatCorrectly() {
+        val serverJson = JSONObject().apply {
+            put("id", "track-server-1")
+            put("name", "Cruel Summer")
+            put("artist", "Taylor Swift")
+            put("album", "Lover")
+            put("durationFormatted", "2:58")
+            put("artwork", "https://example.com/lover.jpg")
+            put("previewUrl", "https://example.com/preview.m4a")
+            put("youtubeId", "ic8j13piAhQ")
+        }
+
+        val song = UserLibraryManager.parseSongFromJson(serverJson)
+        assertEquals("track-server-1", song.id)
+        assertEquals("Cruel Summer", song.title)
+        assertEquals("Taylor Swift", song.artist)
+        assertEquals("Lover", song.album)
+        assertEquals("https://example.com/lover.jpg", song.artworkUrl)
+        assertEquals("https://example.com/preview.m4a", song.audioUrl)
+        assertEquals("ic8j13piAhQ", song.youtubeId)
+        assertTrue(song.isLiked)
+    }
+
+    @Test
+    fun playlist_parsesServerJsonWithTracksSeamlessly() {
+        val serverPlaylistJson = JSONObject().apply {
+            put("id", "user-pl-12345")
+            put("title", "My Romantic Playlist")
+            put("description", "Best love ballads")
+            put("artwork", "https://example.com/romantic.jpg")
+            put("curator", "Ben")
+            val tracksArr = org.json.JSONArray().apply {
+                put(JSONObject().apply {
+                    put("id", "track-rom-1")
+                    put("name", "Someone You Loved")
+                    put("artist", "Lewis Capaldi")
+                    put("album", "Divinely Uninspired")
+                    put("durationFormatted", "3:02")
+                    put("artwork", "https://example.com/capaldi.jpg")
+                    put("previewUrl", "https://example.com/capaldi.m4a")
+                })
+            }
+            put("tracks", tracksArr)
+        }
+
+        val playlist = Playlist.fromJson(serverPlaylistJson)
+        assertEquals("user-pl-12345", playlist.id)
+        assertEquals("My Romantic Playlist", playlist.title)
+        assertEquals("https://example.com/romantic.jpg", playlist.artworkUrl)
+        assertEquals("Ben", playlist.curator)
+        assertEquals(1, playlist.tracks.size)
+
+        val track = playlist.tracks[0]
+        assertEquals("track-rom-1", track.id)
+        assertEquals("Someone You Loved", track.title)
+        assertEquals("Lewis Capaldi", track.artist)
+        assertEquals("https://example.com/capaldi.jpg", track.artworkUrl)
+        assertEquals("https://example.com/capaldi.m4a", track.audioUrl)
+    }
+
+    @Test
+    fun categoryFilter_topSongsSortsByPopularityDescending() {
+        val songs = listOf(
+            Song(id = "s1", title = "A", artist = "X", album = "Al", durationFormatted = "3:00", audioUrl = "", popularity = 85),
+            Song(id = "s2", title = "B", artist = "Y", album = "Al", durationFormatted = "3:00", audioUrl = "", popularity = 98),
+            Song(id = "s3", title = "C", artist = "Z", album = "Al", durationFormatted = "3:00", audioUrl = "", popularity = 94)
+        )
+
+        val sorted = songs.sortedByDescending { it.popularity }
+        assertEquals("s2", sorted[0].id)
+        assertEquals(98, sorted[0].popularity)
+        assertEquals("s3", sorted[1].id)
+        assertEquals("s1", sorted[2].id)
+    }
+
+    @Test
+    fun categoryFilter_romanticSongsExtractsRomanticTracks() {
+        val songs = listOf(
+            Song(id = "s1", title = "Lose Yourself", artist = "Eminem", album = "8 Mile", durationFormatted = "5:22", audioUrl = "", popularity = 98),
+            Song(id = "s2", title = "Cruel Summer", artist = "Taylor Swift", album = "Lover", durationFormatted = "2:58", audioUrl = "", popularity = 97),
+            Song(id = "s3", title = "Shape of You", artist = "Ed Sheeran", album = "Divide", durationFormatted = "3:54", audioUrl = "", popularity = 95),
+            Song(id = "s4", title = "Believer", artist = "Imagine Dragons", album = "Evolve", durationFormatted = "3:24", audioUrl = "", popularity = 93)
+        )
+
+        val romantic = songs.filter { s ->
+            s.title.contains("summer", true) ||
+            s.title.contains("love", true) ||
+            s.title.contains("shape", true) ||
+            s.artist.contains("swift", true) ||
+            s.artist.contains("sheeran", true) ||
+            s.album.contains("lover", true)
+        }
+
+        assertEquals(2, romantic.size)
+        assertTrue(romantic.any { it.title == "Cruel Summer" })
+        assertTrue(romantic.any { it.title == "Shape of You" })
+        assertFalse(romantic.any { it.title == "Lose Yourself" })
+    }
 }

@@ -44,22 +44,26 @@ data class Playlist(
             val id = json.optString("id", "pl-" + System.currentTimeMillis())
             val title = json.optString("title", "My Playlist")
             val description = json.optString("description", "Created by you")
-            val artworkUrl = json.optString("artworkUrl", "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=400&auto=format&fit=crop&q=80")
+            val rawArtwork = if (json.has("artworkUrl")) json.optString("artworkUrl") else json.optString("artwork")
+            val artworkUrl = if (rawArtwork.isNotBlank()) rawArtwork else "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=400&auto=format&fit=crop&q=80"
             val curator = json.optString("curator", "You")
             val tracks = mutableListOf<Song>()
             val arr = json.optJSONArray("tracks")
             if (arr != null) {
                 for (i in 0 until arr.length()) {
                     val sJson = arr.optJSONObject(i) ?: continue
+                    val sArtwork = if (sJson.has("artworkUrl")) sJson.optString("artworkUrl") else sJson.optString("artwork", "")
+                    val sAudio = if (sJson.has("audioUrl")) sJson.optString("audioUrl") else sJson.optString("previewUrl", "")
+                    val sTitle = if (sJson.has("title")) sJson.optString("title") else sJson.optString("name", "Unknown Title")
                     tracks.add(
                         Song(
                             id = sJson.optString("id", "t-$i"),
-                            title = sJson.optString("title", "Unknown Title"),
+                            title = sTitle,
                             artist = sJson.optString("artist", "Unknown Artist"),
                             album = sJson.optString("album", "Unknown Album"),
                             durationFormatted = sJson.optString("durationFormatted", "3:00"),
-                            audioUrl = sJson.optString("audioUrl", ""),
-                            artworkUrl = sJson.optString("artworkUrl", "").takeIf { it.isNotBlank() },
+                            audioUrl = sAudio,
+                            artworkUrl = sArtwork.takeIf { it.isNotBlank() },
                             isLiked = sJson.optBoolean("isLiked", false),
                             popularity = sJson.optInt("popularity", 80),
                             youtubeId = sJson.optString("youtubeId", "").takeIf { it.isNotBlank() },

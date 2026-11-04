@@ -73,6 +73,18 @@ class LoginActivity : AppCompatActivity() {
                         val resText = conn.inputStream.bufferedReader().use { it.readText() }
                         val json = org.json.JSONObject(resText)
                         token = json.optString("token", "")
+
+                        // Import server library and liked tracks into UserLibraryManager
+                        val userObj = json.optJSONObject("user")
+                        if (userObj != null) {
+                            UserLibraryManager.init(this@LoginActivity)
+                            UserLibraryManager.importFromLogin(userObj, token)
+                        }
+
+                        // Sync playlists
+                        PlaylistManager.init(this@LoginActivity)
+                        PlaylistManager.syncFromBackend()
+
                         success = true
                     } else if (code == 401) {
                         errorMsg = "Invalid username or password."

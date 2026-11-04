@@ -49,6 +49,29 @@ class MainActivity : AppCompatActivity(), PlaybackManager.PlaybackListener {
 
         PlaybackManager.attachWebView(binding.webViewPlayer)
         PlaylistManager.init(this)
+        UserLibraryManager.init(this)
+        UserLibraryManager.syncFromBackend(sessionManager.getAuthToken()) {
+            runOnUiThread {
+                updateLikedSongsCount()
+                @Suppress("NotifyDataSetChanged")
+                songAdapter.notifyDataSetChanged()
+                if (::homeSongAdapter.isInitialized) {
+                    @Suppress("NotifyDataSetChanged")
+                    homeSongAdapter.notifyDataSetChanged()
+                }
+            }
+        }
+        UserLibraryManager.addListener {
+            runOnUiThread {
+                updateLikedSongsCount()
+                @Suppress("NotifyDataSetChanged")
+                songAdapter.notifyDataSetChanged()
+                if (::homeSongAdapter.isInitialized) {
+                    @Suppress("NotifyDataSetChanged")
+                    homeSongAdapter.notifyDataSetChanged()
+                }
+            }
+        }
         PlaybackManager.authToken = sessionManager.getAuthToken()
         PlaybackManager.onStreamDisplaced = { playingOn ->
             Toast.makeText(this, "Audio paused: playback active on $playingOn", Toast.LENGTH_LONG).show()
@@ -248,22 +271,30 @@ class MainActivity : AppCompatActivity(), PlaybackManager.PlaybackListener {
         val curated = SpotifySearchEngine.defaultCuratedSongs
         if (curated.isNotEmpty()) {
             ImageLoader.load(curated[0].artworkUrl, binding.imgTileTopHits)
+            if (curated.size > 2) ImageLoader.load(curated[2].artworkUrl, binding.imgTileRomanticSongs)
             if (curated.size > 1) ImageLoader.load(curated[1].artworkUrl, binding.imgTileDailyMix)
             if (curated.size > 5) ImageLoader.load(curated[5].artworkUrl, binding.imgTileDiscoverWeekly)
-            if (curated.size > 2) ImageLoader.load(curated[2].artworkUrl, binding.imgTilePopHits)
+            if (curated.size > 4) ImageLoader.load(curated[4].artworkUrl, binding.imgTilePopHits)
+            if (curated.size > 13) ImageLoader.load(curated[13].artworkUrl, binding.imgTileChillVibes)
             if (curated.size > 3) ImageLoader.load(curated[3].artworkUrl, binding.imgTileRockClassics)
         }
 
-        // Spotify 6-Tile Quick Access actions
+        // Spotify 8-Tile Quick Access actions
         binding.tileLikedSongs.setOnClickListener {
-            val liked = SpotifySearchEngine.defaultCuratedSongs.filter { it.isLiked }
+            val liked = UserLibraryManager.getLikedSongs()
             val toPlay = if (liked.isNotEmpty()) liked else SpotifySearchEngine.defaultCuratedSongs
             PlaybackManager.setQueueAndPlay(toPlay, 0)
-            Toast.makeText(this, "Playing Liked Songs", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, if (liked.isNotEmpty()) "Playing Liked Songs (${liked.size})" else "Playing Liked Songs", Toast.LENGTH_SHORT).show()
         }
         binding.tileTopHits.setOnClickListener {
-            PlaybackManager.setQueueAndPlay(curated, 0)
+            val topHits = curated.sortedByDescending { it.popularity }
+            PlaybackManager.setQueueAndPlay(topHits, 0)
             Toast.makeText(this, "Playing Today's Top Hits", Toast.LENGTH_SHORT).show()
+        }
+        binding.tileRomanticSongs.setOnClickListener {
+            val romantic = getRomanticSongs(curated)
+            PlaybackManager.setQueueAndPlay(romantic, 0)
+            Toast.makeText(this, "Playing Romantic Songs", Toast.LENGTH_SHORT).show()
         }
         binding.tileDailyMix.setOnClickListener {
             val dailyMix = curated.reversed()
@@ -276,14 +307,60 @@ class MainActivity : AppCompatActivity(), PlaybackManager.PlaybackListener {
             Toast.makeText(this, "Playing Discover Weekly", Toast.LENGTH_SHORT).show()
         }
         binding.tilePopHits.setOnClickListener {
-            val popTracks = curated.filter { it.popularity > 90 }
+            val popTracks = curated.filter { it.popularity >= 93 }
             PlaybackManager.setQueueAndPlay(if (popTracks.isNotEmpty()) popTracks else curated, 0)
+            Toast.makeText(this, "Playing Pop Upbeat", Toast.LENGTH_SHORT).show()
+        }
+        binding.tileChillVibes.setOnClickListener {
+            val chill = curated.filter { it.title.contains("feather", true) || it.title.contains("someone", true) || it.title.contains("viva", true) || it.popularity < 95 }
+            PlaybackManager.setQueueAndPlay(if (chill.isNotEmpty()) chill else curated, 0)
             Toast.makeText(this, "Playing Chill Vibes", Toast.LENGTH_SHORT).show()
         }
         binding.tileRockClassics.setOnClickListener {
-            val classics = curated.filter { it.album.contains("Night", true) || it.title.contains("Bohemian", true) }
+            val classics = curated.filter { it.album.contains("Night", true) || it.title.contains("Bohemian", true) || it.artist.contains("Queen", true) || it.artist.contains("Dragons", true) }
             PlaybackManager.setQueueAndPlay(if (classics.isNotEmpty()) classics else curated, 0)
             Toast.makeText(this, "Playing Release Radar", Toast.LENGTH_SHORT).show()
+        }
+
+        // Home Category Filter Chips
+        val homeChips = listOf(binding.chipHomeAll, binding.chipHomeTopSongs, binding.chipHomeRomantic, binding.chipHomePop, binding.chipHomeChill)
+        homeChips.forEach { chip ->
+            chip.setOnClickListener { selected ->
+                homeChips.forEach { c ->
+                    if (c == selected) {
+                        c.background = ContextCompat.getDrawable(this, R.drawable.bg_spotify_button)
+                        c.setTextColor(ContextCompat.getColor(this, R.color.black))
+                    } else {
+                        c.background = ContextCompat.getDrawable(this, R.drawable.bg_spotify_button_outlined)
+                        c.setTextColor(ContextCompat.getColor(this, R.color.spotify_white))
+                    }
+                }
+                when (selected.id) {
+                    R.id.chipHomeTopSongs -> {
+                        val top = curated.sortedByDescending { it.popularity }
+                        homeSongAdapter.updateSongs(top)
+                        Toast.makeText(this, "Showing Top Songs", Toast.LENGTH_SHORT).show()
+                    }
+                    R.id.chipHomeRomantic -> {
+                        val romantic = getRomanticSongs(curated)
+                        homeSongAdapter.updateSongs(romantic)
+                        Toast.makeText(this, "Showing Romantic Songs", Toast.LENGTH_SHORT).show()
+                    }
+                    R.id.chipHomePop -> {
+                        val pop = curated.filter { it.popularity >= 93 }
+                        homeSongAdapter.updateSongs(pop)
+                        Toast.makeText(this, "Showing Pop Hits", Toast.LENGTH_SHORT).show()
+                    }
+                    R.id.chipHomeChill -> {
+                        val chill = curated.filter { it.title.contains("feather", true) || it.title.contains("someone", true) || it.title.contains("viva", true) || it.popularity < 95 }
+                        homeSongAdapter.updateSongs(chill)
+                        Toast.makeText(this, "Showing Chill Tracks", Toast.LENGTH_SHORT).show()
+                    }
+                    else -> {
+                        homeSongAdapter.updateSongs(curated)
+                    }
+                }
+            }
         }
 
         // Recently Played Carousel Cards
@@ -323,13 +400,15 @@ class MainActivity : AppCompatActivity(), PlaybackManager.PlaybackListener {
                 }
             },
             onLikeClick = { song ->
-                UbiTelemetryManager.log("hitLike", "${song.title} (${if (song.isLiked) "Added" else "Removed"})")
-                Toast.makeText(this, if (song.isLiked) "Added to Liked Songs" else "Removed from Liked Songs", Toast.LENGTH_SHORT).show()
-                updateLikedSongsCount()
-                @Suppress("NotifyDataSetChanged")
-                songAdapter.notifyDataSetChanged()
-                @Suppress("NotifyDataSetChanged")
-                homeSongAdapter.notifyDataSetChanged()
+                UserLibraryManager.toggleLike(song, sessionManager.getAuthToken()) {
+                    UbiTelemetryManager.log("hitLike", "${song.title} (${if (song.isLiked) "Added" else "Removed"})")
+                    Toast.makeText(this, if (song.isLiked) "Added to Liked Songs" else "Removed from Liked Songs", Toast.LENGTH_SHORT).show()
+                    updateLikedSongsCount()
+                    @Suppress("NotifyDataSetChanged")
+                    songAdapter.notifyDataSetChanged()
+                    @Suppress("NotifyDataSetChanged")
+                    homeSongAdapter.notifyDataSetChanged()
+                }
             },
             onMoreClick = { song ->
                 showTrackOptionsDialog(song)
@@ -384,7 +463,16 @@ class MainActivity : AppCompatActivity(), PlaybackManager.PlaybackListener {
     }
 
     private fun setupCategoryChips() {
-        val chips = listOf(binding.chipAll, binding.chipSongs, binding.chipArtists, binding.chipPlaylists)
+        val chips = listOf(
+            binding.chipAll,
+            binding.chipTopSongs,
+            binding.chipRomantic,
+            binding.chipSongs,
+            binding.chipArtists,
+            binding.chipPlaylists,
+            binding.chipPop,
+            binding.chipRock
+        )
         chips.forEach { chip ->
             chip.setOnClickListener { selected ->
                 chips.forEach { c ->
@@ -404,20 +492,36 @@ class MainActivity : AppCompatActivity(), PlaybackManager.PlaybackListener {
     }
 
     private fun applyCategoryFilter() {
-        val filtered = when (activeCategory) {
-            "Artists" -> currentFilteredSongs.distinctBy { it.artist }
-            "Playlists" -> currentFilteredSongs.sortedBy { it.album }
-            "Songs" -> currentFilteredSongs
+        val filtered = when {
+            activeCategory.contains("Top Songs", true) -> currentFilteredSongs.sortedByDescending { it.popularity }
+            activeCategory.contains("Romantic", true) -> getRomanticSongs(currentFilteredSongs)
+            activeCategory.contains("Pop", true) -> currentFilteredSongs.filter { it.popularity >= 93 || it.artist.contains("Dua", true) || it.artist.contains("Taylor", true) }
+            activeCategory.contains("Rock", true) -> currentFilteredSongs.filter { it.album.contains("Opera", true) || it.title.contains("Bohemian", true) || it.artist.contains("Queen", true) || it.artist.contains("Dragons", true) || it.artist.contains("Coldplay", true) }
+            activeCategory.equals("Artists", true) -> currentFilteredSongs.distinctBy { it.artist }
+            activeCategory.equals("Playlists", true) -> currentFilteredSongs.sortedBy { it.album }
             else -> currentFilteredSongs
         }
         displayedSongs = filtered
         songAdapter.updateSongs(filtered)
+        setupTopResult()
+    }
 
-        if (activeCategory == "Songs") {
-            binding.cardTopResult.visibility = View.GONE
-        } else {
-            setupTopResult()
+    private fun getRomanticSongs(source: List<Song>): List<Song> {
+        val romantic = source.filter { s ->
+            s.title.contains("summer", true) ||
+            s.title.contains("love", true) ||
+            s.title.contains("feather", true) ||
+            s.title.contains("someone", true) ||
+            s.title.contains("shape", true) ||
+            s.title.contains("flowers", true) ||
+            s.title.contains("as it was", true) ||
+            s.title.contains("starboy", true) ||
+            s.artist.contains("swift", true) ||
+            s.artist.contains("sheeran", true) ||
+            s.artist.contains("capaldi", true) ||
+            s.album.contains("lover", true)
         }
+        return if (romantic.isNotEmpty()) romantic else source
     }
 
     private fun setupTopResult() {
@@ -459,14 +563,16 @@ class MainActivity : AppCompatActivity(), PlaybackManager.PlaybackListener {
                 }
             },
             onLikeClick = { song ->
-                UbiTelemetryManager.log("hitLike", "${song.title} (${if (song.isLiked) "Added" else "Removed"})")
-                Toast.makeText(this, if (song.isLiked) "Added to Liked Songs" else "Removed from Liked Songs", Toast.LENGTH_SHORT).show()
-                updateLikedSongsCount()
-                @Suppress("NotifyDataSetChanged")
-                songAdapter.notifyDataSetChanged()
-                if (::homeSongAdapter.isInitialized) {
+                UserLibraryManager.toggleLike(song, sessionManager.getAuthToken()) {
+                    UbiTelemetryManager.log("hitLike", "${song.title} (${if (song.isLiked) "Added" else "Removed"})")
+                    Toast.makeText(this, if (song.isLiked) "Added to Liked Songs" else "Removed from Liked Songs", Toast.LENGTH_SHORT).show()
+                    updateLikedSongsCount()
                     @Suppress("NotifyDataSetChanged")
-                    homeSongAdapter.notifyDataSetChanged()
+                    songAdapter.notifyDataSetChanged()
+                    if (::homeSongAdapter.isInitialized) {
+                        @Suppress("NotifyDataSetChanged")
+                        homeSongAdapter.notifyDataSetChanged()
+                    }
                 }
             },
             onMoreClick = { song ->
@@ -539,13 +645,13 @@ class MainActivity : AppCompatActivity(), PlaybackManager.PlaybackListener {
 
         // Play Liked Songs
         val playLikedAction = View.OnClickListener {
-            val liked = SpotifySearchEngine.defaultCuratedSongs.filter { it.isLiked }
+            val liked = UserLibraryManager.getLikedSongs()
             val toPlay = if (liked.isNotEmpty()) liked else SpotifySearchEngine.defaultCuratedSongs
             if (PlaybackManager.currentSong != null && toPlay.any { it.id == PlaybackManager.currentSong?.id }) {
                 PlaybackManager.togglePlayPause()
             } else {
                 PlaybackManager.setQueueAndPlay(toPlay, 0)
-                Toast.makeText(this, "Playing Liked Songs", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, if (liked.isNotEmpty()) "Playing Liked Songs (${liked.size})" else "Playing Liked Songs", Toast.LENGTH_SHORT).show()
             }
         }
         binding.cardLikedSongs.setOnClickListener(playLikedAction)
@@ -708,14 +814,15 @@ class MainActivity : AppCompatActivity(), PlaybackManager.PlaybackListener {
                         Toast.makeText(context, "\"${song.title}\" will play next", Toast.LENGTH_SHORT).show()
                     }
                     3 -> {
-                        song.isLiked = !song.isLiked
-                        Toast.makeText(context, if (song.isLiked) "Saved to Liked Songs" else "Removed from Liked Songs", Toast.LENGTH_SHORT).show()
-                        updateLikedSongsCount()
-                        @Suppress("NotifyDataSetChanged")
-                        songAdapter.notifyDataSetChanged()
-                        if (::homeSongAdapter.isInitialized) {
+                        UserLibraryManager.toggleLike(song, sessionManager.getAuthToken()) {
+                            Toast.makeText(context, if (song.isLiked) "Saved to Liked Songs" else "Removed from Liked Songs", Toast.LENGTH_SHORT).show()
+                            updateLikedSongsCount()
                             @Suppress("NotifyDataSetChanged")
-                            homeSongAdapter.notifyDataSetChanged()
+                            songAdapter.notifyDataSetChanged()
+                            if (::homeSongAdapter.isInitialized) {
+                                @Suppress("NotifyDataSetChanged")
+                                homeSongAdapter.notifyDataSetChanged()
+                            }
                         }
                     }
                 }
@@ -791,7 +898,7 @@ class MainActivity : AppCompatActivity(), PlaybackManager.PlaybackListener {
     }
 
     private fun updateLikedSongsCount() {
-        val count = SpotifySearchEngine.defaultCuratedSongs.count { it.isLiked }
+        val count = UserLibraryManager.getLikedCount()
         binding.tvLikedSongsCount.text = "Playlist • $count ${if (count == 1) "song" else "songs"}"
     }
 

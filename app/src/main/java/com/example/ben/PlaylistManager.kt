@@ -10,20 +10,33 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.util.concurrent.Executors
 
+/**
+ * Manages custom user playlists, local cache, and bidirectional sync with
+ * the backend server (/api/user/playlists).
+ * Shares custom playlists seamlessly between Web and Android sessions.
+ */
 object PlaylistManager {
     private const val PREFS_NAME = "pmusic_playlists"
     private const val KEY_PLAYLISTS = "user_playlists_json"
     private val executor = Executors.newSingleThreadExecutor()
-    private val mainHandler = Handler(Looper.getMainLooper())
+    private fun postToMain(action: () -> Unit) {
+        try {
+            Handler(Looper.getMainLooper()).post(action)
+        } catch (_: Exception) {
+            action.invoke()
+        }
+    }
 
     private var prefs: SharedPreferences? = null
     private val playlists = mutableListOf<Playlist>()
     private val listeners = mutableListOf<() -> Unit>()
 
     fun init(context: Context) {
-        if (prefs != null) return
-        prefs = context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        loadFromPrefs()
+        if (prefs == null) {
+            prefs = context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            loadFromPrefs()
+            syncFromBackend()
+        }
     }
 
     fun addListener(listener: () -> Unit) {
@@ -35,7 +48,7 @@ object PlaylistManager {
     }
 
     private fun notifyChanged() {
-        mainHandler.post {
+        postToMain {
             listeners.forEach { it.invoke() }
         }
     }
@@ -133,22 +146,94 @@ object PlaylistManager {
         prefs?.edit()?.putString(KEY_PLAYLISTS, arr.toString())?.apply()
     }
 
+    fun syncFromBackend(onComplete: (() -> Unit)? = null) {
+        executor.execute {
+            try {
+                val url = URL("http://10.0.2.2:3456/api/user/playlists")
+                val conn = (url.openConnection() as HttpURLConnection).apply {
+                    requestMethod = "GET"
+                    connectTimeout = 3000
+                    readTimeout = 3000
+                }
+
+                if (conn.responseCode == 200) {
+                    val res = conn.inputStream.bufferedReader().use { it.readText() }
+                    val json = JSONObject(res)
+                    val arr = json.optJSONArray("playlists")
+                    if (arr != null) {
+                        var updated = false
+                        for (i in 0 until arr.length()) {
+                            val pObj = arr.optJSONObject(i) ?: continue
+                            val remotePl = Playlist.fromJson(pObj)
+
+                            val existing = playlists.find { it.id == remotePl.id || it.title.equals(remotePl.title, true) }
+                            if (existing == null) {
+                                playlists.add(remotePl)
+                                updated = true
+                            } else {
+                                // Merge remote tracks into existing playlist
+                                remotePl.tracks.forEach { rTrack ->
+                                    if (existing.tracks.none { it.id == rTrack.id }) {
+                                        existing.tracks.add(rTrack)
+                                        updated = true
+                                    }
+                                }
+                            }
+                        }
+
+                        if (updated) {
+                            saveToPrefs()
+                            notifyChanged()
+                        }
+                    }
+                }
+                conn.disconnect()
+            } catch (_: Exception) {}
+
+            postToMain {
+                onComplete?.invoke()
+            }
+        }
+    }
+
     private fun syncCreateWithBackend(pl: Playlist) {
         executor.execute {
             try {
                 val url = URL("http://10.0.2.2:3456/api/user/playlists")
                 val conn = (url.openConnection() as HttpURLConnection).apply {
                     requestMethod = "POST"
-                    connectTimeout = 2000
-                    readTimeout = 2000
+                    connectTimeout = 3000
+                    readTimeout = 3000
                     doOutput = true
                     setRequestProperty("Content-Type", "application/json")
                 }
+
+                val tracksArr = JSONArray()
+                pl.tracks.forEach { s ->
+                    val tObj = JSONObject().apply {
+                        put("id", s.id)
+                        put("name", s.title)
+                        put("title", s.title)
+                        put("artist", s.artist)
+                        put("album", s.album)
+                        put("artwork", s.artworkUrl ?: "")
+                        put("artworkUrl", s.artworkUrl ?: "")
+                        put("previewUrl", s.audioUrl)
+                        put("audioUrl", s.audioUrl)
+                        put("durationFormatted", s.durationFormatted)
+                        put("youtubeId", s.youtubeId ?: "")
+                    }
+                    tracksArr.put(tObj)
+                }
+
                 val payload = JSONObject().apply {
                     put("action", "create")
+                    put("id", pl.id)
                     put("title", pl.title)
                     put("description", pl.description)
                     put("artwork", pl.artworkUrl)
+                    put("curator", pl.curator)
+                    put("tracks", tracksArr)
                 }
                 conn.outputStream.use { it.write(payload.toString().toByteArray()) }
                 conn.responseCode
@@ -163,18 +248,23 @@ object PlaylistManager {
                 val url = URL("http://10.0.2.2:3456/api/user/playlists")
                 val conn = (url.openConnection() as HttpURLConnection).apply {
                     requestMethod = "POST"
-                    connectTimeout = 2000
-                    readTimeout = 2000
+                    connectTimeout = 3000
+                    readTimeout = 3000
                     doOutput = true
                     setRequestProperty("Content-Type", "application/json")
                 }
                 val trackObj = JSONObject().apply {
                     put("id", song.id)
                     put("name", song.title)
+                    put("title", song.title)
                     put("artist", song.artist)
                     put("album", song.album)
                     put("artwork", song.artworkUrl ?: "")
+                    put("artworkUrl", song.artworkUrl ?: "")
+                    put("previewUrl", song.audioUrl)
+                    put("audioUrl", song.audioUrl)
                     put("durationFormatted", song.durationFormatted)
+                    put("youtubeId", song.youtubeId ?: "")
                 }
                 val payload = JSONObject().apply {
                     put("action", "addTrack")
@@ -194,8 +284,8 @@ object PlaylistManager {
                 val url = URL("http://10.0.2.2:3456/api/user/playlists")
                 val conn = (url.openConnection() as HttpURLConnection).apply {
                     requestMethod = "POST"
-                    connectTimeout = 2000
-                    readTimeout = 2000
+                    connectTimeout = 3000
+                    readTimeout = 3000
                     doOutput = true
                     setRequestProperty("Content-Type", "application/json")
                 }
@@ -217,8 +307,8 @@ object PlaylistManager {
                 val url = URL("http://10.0.2.2:3456/api/user/playlists/" + playlistId)
                 val conn = (url.openConnection() as HttpURLConnection).apply {
                     requestMethod = "DELETE"
-                    connectTimeout = 2000
-                    readTimeout = 2000
+                    connectTimeout = 3000
+                    readTimeout = 3000
                 }
                 conn.responseCode
                 conn.disconnect()
@@ -226,4 +316,3 @@ object PlaylistManager {
         }
     }
 }
-
