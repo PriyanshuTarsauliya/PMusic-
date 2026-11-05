@@ -2252,6 +2252,16 @@ async function playFullTrack(track) {
 
   // 1. If we already know the video ID, play complete full song via YouTube
   let videoId = track.youtubeId;
+
+  // 1.1 Check client-side persistent video ID cache (for offline / backend-down resilience)
+  const cacheKey = `yt_vid_${(track.artist + ' ' + track.name).trim().toLowerCase()}`;
+  if (!videoId) {
+    try {
+      videoId = localStorage.getItem(cacheKey);
+      if (videoId) track.youtubeId = videoId;
+    } catch (_) {}
+  }
+
   if (videoId) {
     if (startYouTube(videoId)) return;
   }
@@ -2265,6 +2275,7 @@ async function playFullTrack(track) {
       if (data && data.videoId) {
         videoId = data.videoId;
         track.youtubeId = videoId;
+        try { localStorage.setItem(cacheKey, videoId); } catch (_) {}
 
         // Immediately start FULL SONG playback
         if (State.currentTrack && State.currentTrack.id === track.id) {
@@ -2273,7 +2284,7 @@ async function playFullTrack(track) {
       }
     }
   } catch (e) {
-    console.warn('Server full-song resolution error:', e);
+    console.warn('Server full-song resolution error (offline fallback mode):', e);
   }
 
   // 3. Fallback to HTML5 audio preview ONLY if YouTube resolution failed completely
@@ -2286,6 +2297,9 @@ async function playFullTrack(track) {
     audio.play().catch(err => {
       console.warn('HTML5 audio play blocked by browser gesture policy:', err);
     });
+    if (!videoId) {
+      showBannerToast(`Playing preview for "${track.name}".`);
+    }
   } else {
     State.isPlaying = false;
     updatePlayerUI();
@@ -4590,17 +4604,6 @@ function setCategoryFilter(category) {
     switchView('drilldown');
   }
   logUbiEvent('hitFilterChip', `category=${category}`);
-}
-
-function toggleLikeTrack(trackId) {
-  if (State.likedTracks.has(trackId)) {
-    State.likedTracks.delete(trackId);
-    logUbiEvent('hitRemoveLike', trackId);
-  } else {
-    State.likedTracks.add(trackId);
-    logUbiEvent('hitLike', trackId);
-  }
-  updatePlayerUI();
 }
 
 // ==========================================================================
