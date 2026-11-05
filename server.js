@@ -1216,7 +1216,11 @@ const server = http.createServer(async (req, res) => {
       const userKey = username.toLowerCase();
       if (db[userKey]) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Username already exists. Please log in.' }));
+        res.end(JSON.stringify({
+          error: 'Username already exists. Please log in.',
+          code: 'USER_EXISTS',
+          message: 'An account with this username or email already exists. Please log in.'
+        }));
         return;
       }
 

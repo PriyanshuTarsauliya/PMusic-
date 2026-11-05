@@ -921,7 +921,7 @@ async function handleAuthSubmit(e) {
   }
 
   if (!username) {
-    showError('Please enter a username.');
+    showError('Please enter an email or username.');
     return;
   }
   if (!password) {
@@ -929,11 +929,13 @@ async function handleAuthSubmit(e) {
     return;
   }
 
-  isAuthSubmitting = true;
-
   if (currentAuthMode === 'register') {
     if (password.length < 4) {
       showError('Password must be at least 4 characters long.');
+      return;
+    }
+    if (!confirmPwd) {
+      showError('Please confirm your password.');
       return;
     }
     if (password !== confirmPwd) {
@@ -942,6 +944,7 @@ async function handleAuthSubmit(e) {
     }
   }
 
+  isAuthSubmitting = true;
   if (submitBtn) submitBtn.disabled = true;
   if (spinner) spinner.style.display = 'inline-block';
 
@@ -1064,6 +1067,33 @@ async function handleAuthSubmit(e) {
       }
       if (data && data.code === 'INVALID_PASSWORD') {
         showError('Incorrect password. Please verify and try again.');
+        return;
+      }
+      if (data && (data.code === 'USER_EXISTS' || (data.error && data.error.includes('already exists')))) {
+        if (alertEl) {
+          alertEl.className = 'auth-alert error';
+          alertEl.innerHTML = `An account already exists with this ${username.includes('@') ? 'email' : 'username'}.<br><button type="button" id="btn-quick-switch-login" style="margin-top:8px; background:#1db954; color:#000; border:none; padding:6px 14px; border-radius:20px; font-weight:700; cursor:pointer; font-size:13px;">Log In to this Account</button>`;
+          alertEl.style.setProperty('display', 'block', 'important');
+          const quickLoginBtn = document.getElementById('btn-quick-switch-login');
+          if (quickLoginBtn) {
+            quickLoginBtn.onclick = () => {
+              openAuthModal('login');
+              const uInp = document.getElementById('auth-username-input');
+              const pInp = document.getElementById('auth-password-input');
+              if (uInp) uInp.value = username;
+              if (pInp) {
+                pInp.value = password;
+                pInp.focus();
+              }
+              const alertBox = document.getElementById('auth-alert');
+              if (alertBox) {
+                alertBox.className = 'auth-alert';
+                alertBox.textContent = 'Account found! Click "Log In" below.';
+                alertBox.style.setProperty('display', 'block', 'important');
+              }
+            };
+          }
+        }
         return;
       }
       showError(data.error || 'Authentication failed. Please check credentials.');
@@ -6054,6 +6084,25 @@ document.addEventListener('DOMContentLoaded', () => {
   if (btnAuthSubmit) {
     btnAuthSubmit.addEventListener('click', (e) => {
       if (!authForm) handleAuthSubmit(e);
+    });
+  }
+
+  const btnAuthDemo = document.getElementById('btn-auth-demo');
+  if (btnAuthDemo) {
+    btnAuthDemo.addEventListener('click', async (e) => {
+      e.preventDefault();
+      openAuthModal('login');
+      const userInput = document.getElementById('auth-username-input');
+      const pwdInput = document.getElementById('auth-password-input');
+      if (userInput) userInput.value = 'ben_spotify_premium@spotify.com';
+      if (pwdInput) pwdInput.value = 'Spotify2026!';
+      const alertEl = document.getElementById('auth-alert');
+      if (alertEl) {
+        alertEl.className = 'auth-alert';
+        alertEl.textContent = 'Demo credentials loaded! Logging in...';
+        alertEl.style.setProperty('display', 'block', 'important');
+      }
+      handleAuthSubmit(e);
     });
   }
 
