@@ -60,3 +60,4 @@ if (!hasLoginTabClick || !hasRegisterTabClick || !hasHiddenConfirmGroup || !hasA
 
 console.log(`\nOVERALL STATUS: ${failed === 0 ? '🎉 ALL CHECKS PASSED (100%)' : `⚠️ ${failed} CHECKS FAILED`}`);
 process.exit(failed > 0 ? 1 : 0);
+

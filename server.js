@@ -1198,7 +1198,10 @@ const server = http.createServer(async (req, res) => {
         ? payload.library
         : getSavedLibrary();
 
-      if (!username || !/^[a-zA-Z0-9_.-]{3,32}$/.test(username)) {
+      const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(username) && username.length <= 128;
+      const isUsername = /^[a-zA-Z0-9_.-]{3,32}$/.test(username);
+
+      if (!username || (!isEmail && !isUsername)) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: 'Username must be 3-32 characters long and contain only letters, numbers, hyphens or underscores.' }));
         return;
@@ -1218,10 +1221,11 @@ const server = http.createServer(async (req, res) => {
       }
 
       const { hash, salt } = hashPassword(password);
-      const displayName = (payload.displayName || username).trim();
+      const displayName = (payload.displayName || (isEmail ? username.split('@')[0] : username)).trim();
       const avatar = (payload.avatar || '').trim();
       db[userKey] = {
         username,
+        email: isEmail ? userKey : (payload.email || '').toLowerCase().trim(),
         displayName,
         avatar,
         accountType: 'SPOTIFY PREMIUM',
@@ -1266,20 +1270,49 @@ const server = http.createServer(async (req, res) => {
 
     try {
       const payload = await readJsonBody(req);
-      const username = (payload.username || '').trim();
+      const rawUser = (payload.username || payload.email || '').trim();
       const password = (payload.password || '').trim();
 
       const db = getUsersDb();
-      const userKey = username.toLowerCase();
-      const user = db[userKey];
+      const userKey = rawUser.toLowerCase();
+      let user = db[userKey];
 
-      if (!user || !verifyPassword(password, user.passwordHash, user.salt)) {
+      // If not found by direct key, search by email or username
+      if (!user) {
+        for (const k of Object.keys(db)) {
+          const candidate = db[k];
+          if (candidate) {
+            if ((candidate.email && candidate.email.toLowerCase() === userKey) ||
+                (candidate.username && candidate.username.toLowerCase() === userKey)) {
+              user = candidate;
+              break;
+            }
+          }
+        }
+      }
+
+      if (!user) {
         res.writeHead(401, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Invalid username or password.' }));
+        res.end(JSON.stringify({
+          error: 'Invalid username or password.',
+          code: 'USER_NOT_FOUND',
+          message: 'Account not found. Please click "Create New Account" to register.'
+        }));
         return;
       }
 
-      const token = createSession(userKey);
+      if (!verifyPassword(password, user.passwordHash, user.salt)) {
+        res.writeHead(401, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          error: 'Invalid username or password.',
+          code: 'INVALID_PASSWORD',
+          message: 'Incorrect password. Please try again.'
+        }));
+        return;
+      }
+
+      const actualKey = user.username.toLowerCase();
+      const token = createSession(actualKey);
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({
         success: true,
@@ -1435,19 +1468,48 @@ const server = http.createServer(async (req, res) => {
       // 3. User verification against database
       const db = getUsersDb();
       const userKey = email.toLowerCase();
-      const user = db[userKey];
+      let user = db[userKey];
 
-      if (!user || !verifyPassword(password, user.passwordHash, user.salt)) {
+      // If not found by direct key, search by email or username
+      if (!user) {
+        for (const k of Object.keys(db)) {
+          const candidate = db[k];
+          if (candidate) {
+            if ((candidate.email && candidate.email.toLowerCase() === userKey) ||
+                (candidate.username && candidate.username.toLowerCase() === userKey)) {
+              user = candidate;
+              break;
+            }
+          }
+        }
+      }
+
+      if (!user) {
         res.writeHead(401, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Invalid credentials.' }));
+        res.end(JSON.stringify({
+          error: 'Invalid credentials.',
+          code: 'USER_NOT_FOUND',
+          message: 'Account not found. Please click "Create New Account" to register.'
+        }));
+        return;
+      }
+
+      if (!verifyPassword(password, user.passwordHash, user.salt)) {
+        res.writeHead(401, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          error: 'Invalid credentials.',
+          code: 'INVALID_PASSWORD',
+          message: 'Incorrect password. Please try again.'
+        }));
         return;
       }
 
       // 4. Issue Rotating Tokens
-      const userId = userKey;
+      const userId = (user.username || userKey).toLowerCase();
       const deviceId = deviceInfo.deviceId || `dev_${crypto.randomBytes(8).toString('hex')}`;
       const refreshSession = TokenManager.issueRefreshToken(userId, null, deviceId);
-      const accessSession = TokenManager.issueAccessToken({ id: userId, email: userKey }, refreshSession.familyId);
+      const accessSession = TokenManager.issueAccessToken({ id: userId, email: user.email || userKey }, refreshSession.familyId);
+      const legacyToken = createSession(userId);
 
       // Set Refresh Token in secure cookie
       const isProd = process.env.NODE_ENV === 'production';
@@ -1456,6 +1518,7 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({
         success: true,
+        token: legacyToken,
         user: {
           username: user.username,
           displayName: user.displayName || user.username,

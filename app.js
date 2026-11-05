@@ -1033,6 +1033,39 @@ async function handleAuthSubmit(e) {
         }, 1000);
         return;
       }
+      if (data && data.code === 'USER_NOT_FOUND') {
+        if (alertEl) {
+          alertEl.className = 'auth-alert error';
+          alertEl.innerHTML = `No account found with this ${username.includes('@') ? 'email' : 'username'}.<br><button type="button" id="btn-quick-switch-register" style="margin-top:8px; background:#1db954; color:#000; border:none; padding:6px 14px; border-radius:20px; font-weight:700; cursor:pointer; font-size:13px;">Create Free Account Now</button>`;
+          alertEl.style.setProperty('display', 'block', 'important');
+          const quickBtn = document.getElementById('btn-quick-switch-register');
+          if (quickBtn) {
+            quickBtn.onclick = () => {
+              openAuthModal('register');
+              const uInp = document.getElementById('auth-username-input');
+              const pInp = document.getElementById('auth-password-input');
+              const cInp = document.getElementById('auth-password-confirm');
+              if (uInp) uInp.value = username;
+              if (pInp) pInp.value = password;
+              if (cInp) {
+                cInp.value = password;
+                cInp.focus();
+              }
+              const alertBox = document.getElementById('auth-alert');
+              if (alertBox) {
+                alertBox.className = 'auth-alert';
+                alertBox.textContent = 'Account ready to create! Click "Create Account & Sync" below.';
+                alertBox.style.setProperty('display', 'block', 'important');
+              }
+            };
+          }
+        }
+        return;
+      }
+      if (data && data.code === 'INVALID_PASSWORD') {
+        showError('Incorrect password. Please verify and try again.');
+        return;
+      }
       showError(data.error || 'Authentication failed. Please check credentials.');
       return;
     }
