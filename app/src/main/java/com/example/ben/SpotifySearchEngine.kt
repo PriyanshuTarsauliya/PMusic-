@@ -256,7 +256,7 @@ object SpotifySearchEngine {
                 // 1. Fast server-side resolver check (with cache sharing across Web & Android)
                 try {
                     val serverQ = URLEncoder.encode("$artist $title", "UTF-8")
-                    val serverUrl = URL("http://10.0.2.2:3456/api/resolve-full-song?q=$serverQ")
+                    val serverUrl = URL(BackendConfig.getUrl("/api/resolve-full-song?q=$serverQ"))
                     val sConn = serverUrl.openConnection() as HttpURLConnection
                     sConn.connectTimeout = 1200
                     sConn.readTimeout = 1200
@@ -454,7 +454,7 @@ object SpotifySearchEngine {
 
             // 1. Primary: PMusic Multi-Source Backend (YouTube Music + iTunes + Hindi intelligence)
             try {
-                val serverSearchUrl = "http://10.0.2.2:3456/api/search?q=$encoded&source=${if (isHindi) "youtube" else "auto"}&limit=50"
+                val serverSearchUrl = "${BackendConfig.getUrl("/api/search")}?q=$encoded&source=${if (isHindi) "youtube" else "auto"}&limit=50"
                 val sConn = (URL(serverSearchUrl).openConnection() as HttpURLConnection).apply {
                     connectTimeout = 3000
                     readTimeout = 3000
@@ -687,7 +687,7 @@ object SpotifySearchEngine {
             try {
                 val encTrack = URLEncoder.encode(track, "UTF-8")
                 val encArtist = URLEncoder.encode(artist, "UTF-8")
-                val url = URL("http://10.0.2.2:3456/api/lyrics?track=$encTrack&artist=$encArtist")
+                val url = URL(BackendConfig.getUrl("/api/lyrics?track=$encTrack&artist=$encArtist"))
                 val conn = (url.openConnection() as HttpURLConnection).apply {
                     connectTimeout = 2500
                     readTimeout = 2500

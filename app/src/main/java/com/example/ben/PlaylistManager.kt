@@ -149,7 +149,7 @@ object PlaylistManager {
     fun syncFromBackend(onComplete: (() -> Unit)? = null) {
         executor.execute {
             try {
-                val url = URL("http://10.0.2.2:3456/api/user/playlists")
+                val url = URL(BackendConfig.getUrl("/api/user/playlists"))
                 val conn = (url.openConnection() as HttpURLConnection).apply {
                     requestMethod = "GET"
                     connectTimeout = 3000
@@ -199,7 +199,7 @@ object PlaylistManager {
     private fun syncCreateWithBackend(pl: Playlist) {
         executor.execute {
             try {
-                val url = URL("http://10.0.2.2:3456/api/user/playlists")
+                val url = URL(BackendConfig.getUrl("/api/user/playlists"))
                 val conn = (url.openConnection() as HttpURLConnection).apply {
                     requestMethod = "POST"
                     connectTimeout = 3000
@@ -245,7 +245,7 @@ object PlaylistManager {
     private fun syncAddTrackWithBackend(playlistId: String, song: Song) {
         executor.execute {
             try {
-                val url = URL("http://10.0.2.2:3456/api/user/playlists")
+                val url = URL(BackendConfig.getUrl("/api/user/playlists"))
                 val conn = (url.openConnection() as HttpURLConnection).apply {
                     requestMethod = "POST"
                     connectTimeout = 3000
@@ -281,7 +281,7 @@ object PlaylistManager {
     private fun syncRemoveTrackWithBackend(playlistId: String, songId: String) {
         executor.execute {
             try {
-                val url = URL("http://10.0.2.2:3456/api/user/playlists")
+                val url = URL(BackendConfig.getUrl("/api/user/playlists"))
                 val conn = (url.openConnection() as HttpURLConnection).apply {
                     requestMethod = "POST"
                     connectTimeout = 3000
@@ -304,7 +304,7 @@ object PlaylistManager {
     private fun syncDeleteWithBackend(playlistId: String) {
         executor.execute {
             try {
-                val url = URL("http://10.0.2.2:3456/api/user/playlists/" + playlistId)
+                val url = URL(BackendConfig.getUrl("/api/user/playlists/") + playlistId)
                 val conn = (url.openConnection() as HttpURLConnection).apply {
                     requestMethod = "DELETE"
                     connectTimeout = 3000

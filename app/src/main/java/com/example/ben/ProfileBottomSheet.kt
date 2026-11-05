@@ -99,7 +99,7 @@ class ProfileBottomSheet : BottomSheetDialogFragment() {
 
         executor.execute {
             try {
-                val url = URL("http://10.0.2.2:3456/api/user/profile")
+                val url = URL(BackendConfig.getUrl("/api/user/profile"))
                 val conn = (url.openConnection() as HttpURLConnection).apply {
                     requestMethod = "GET"
                     connectTimeout = 3000
@@ -184,7 +184,7 @@ class ProfileBottomSheet : BottomSheetDialogFragment() {
 
         executor.execute {
             try {
-                val url = URL("http://10.0.2.2:3456/api/user/profile")
+                val url = URL(BackendConfig.getUrl("/api/user/profile"))
                 val conn = (url.openConnection() as HttpURLConnection).apply {
                     requestMethod = "POST"
                     connectTimeout = 3000

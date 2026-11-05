@@ -697,7 +697,7 @@ object PlaybackManager {
         if (token.isNullOrBlank()) return
         leaseExecutor.execute {
             try {
-                val url = URL("http://10.0.2.2:3456/api/v1/stream/lease/claim")
+                val url = URL(BackendConfig.getUrl("/api/v1/stream/lease/claim"))
                 val conn = (url.openConnection() as HttpURLConnection).apply {
                     requestMethod = "POST"
                     connectTimeout = 2500
@@ -733,7 +733,7 @@ object PlaybackManager {
         if (token.isNullOrBlank()) return
         leaseExecutor.execute {
             try {
-                val url = URL("http://10.0.2.2:3456/api/v1/stream/lease/heartbeat")
+                val url = URL(BackendConfig.getUrl("/api/v1/stream/lease/heartbeat"))
                 val conn = (url.openConnection() as HttpURLConnection).apply {
                     requestMethod = "POST"
                     connectTimeout = 2500
@@ -767,7 +767,7 @@ object PlaybackManager {
         if (token.isNullOrBlank()) return
         leaseExecutor.execute {
             try {
-                val url = URL("http://10.0.2.2:3456/api/v1/stream/lease/release")
+                val url = URL(BackendConfig.getUrl("/api/v1/stream/lease/release"))
                 val conn = (url.openConnection() as HttpURLConnection).apply {
                     requestMethod = "POST"
                     connectTimeout = 2000

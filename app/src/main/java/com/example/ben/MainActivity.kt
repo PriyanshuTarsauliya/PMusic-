@@ -176,7 +176,7 @@ class MainActivity : AppCompatActivity(), PlaybackManager.PlaybackListener {
 
         java.util.concurrent.Executors.newSingleThreadExecutor().execute {
             try {
-                val url = java.net.URL("http://10.0.2.2:3456/api/user/profile")
+                val url = java.net.URL(BackendConfig.getUrl("/api/user/profile"))
                 val conn = (url.openConnection() as java.net.HttpURLConnection).apply {
                     requestMethod = "GET"
                     connectTimeout = 3000

@@ -47,56 +47,105 @@ class LoginActivity : AppCompatActivity() {
             binding.progressBar.visibility = View.VISIBLE
             binding.btnLogin.isEnabled = false
 
-            // Authenticate credentials against backend with offline fallback
+            // Authenticate credentials against backend with failover and auto-registration
             java.util.concurrent.Executors.newSingleThreadExecutor().execute {
                 var token = ""
                 var success = false
                 var errorMsg = ""
+                var isNewAccount = false
                 var serverUserObj: org.json.JSONObject? = null
+
                 try {
-                    val url = java.net.URL("http://10.0.2.2:3456/api/auth/login")
-                    val conn = (url.openConnection() as java.net.HttpURLConnection).apply {
-                        requestMethod = "POST"
-                        connectTimeout = 2500
-                        readTimeout = 2500
-                        doOutput = true
-                        setRequestProperty("Content-Type", "application/json")
-                    }
-                    val payload = org.json.JSONObject().apply {
-                        put("username", username)
-                        put("password", password)
-                    }
-                    conn.outputStream.use { os ->
-                        os.write(payload.toString().toByteArray(Charsets.UTF_8))
-                    }
-                    val code = conn.responseCode
-                    if (code == 200) {
-                        val resText = conn.inputStream.bufferedReader().use { it.readText() }
-                        val json = org.json.JSONObject(resText)
-                        token = json.optString("token", "")
-
-                        // Import server library and liked tracks into UserLibraryManager
-                        val userObj = json.optJSONObject("user")
-                        serverUserObj = userObj
-                        if (userObj != null) {
-                            UserLibraryManager.init(this@LoginActivity)
-                            UserLibraryManager.importFromLogin(userObj, token)
+                    BackendConfig.executeWithFailover("/api/auth/login") { targetLoginUrl ->
+                        val url = java.net.URL(targetLoginUrl)
+                        val conn = (url.openConnection() as java.net.HttpURLConnection).apply {
+                            requestMethod = "POST"
+                            connectTimeout = 3000
+                            readTimeout = 3000
+                            doOutput = true
+                            setRequestProperty("Content-Type", "application/json")
                         }
+                        val payload = org.json.JSONObject().apply {
+                            put("username", username)
+                            put("password", password)
+                        }
+                        conn.outputStream.use { os ->
+                            os.write(payload.toString().toByteArray(Charsets.UTF_8))
+                        }
+                        val code = conn.responseCode
+                        if (code == 200) {
+                            val resText = conn.inputStream.bufferedReader().use { it.readText() }
+                            val json = org.json.JSONObject(resText)
+                            token = json.optString("token", "")
+                            serverUserObj = json.optJSONObject("user")
+                            success = true
+                        } else if (code == 401) {
+                            val errBody = try {
+                                conn.errorStream?.bufferedReader()?.use { it.readText() } ?: ""
+                            } catch (_: Exception) { "" }
+                            val errJson = try { org.json.JSONObject(errBody) } catch (_: Exception) { null }
+                            val errCode = errJson?.optString("code", "") ?: ""
 
-                        // Sync playlists
-                        PlaylistManager.init(this@LoginActivity)
-                        PlaylistManager.syncFromBackend()
-
-                        success = true
-                    } else if (code == 401) {
-                        errorMsg = "Invalid username or password."
-                    } else if (code == 429) {
-                        errorMsg = "Too many attempts. Please back off."
+                            if (errCode == "USER_NOT_FOUND" || errBody.contains("USER_NOT_FOUND") || errBody.contains("Account not found")) {
+                                // User does not exist yet. Seamlessly register user account!
+                                conn.disconnect()
+                                val regUrl = java.net.URL(BackendConfig.getUrl("/api/auth/register"))
+                                val regConn = (regUrl.openConnection() as java.net.HttpURLConnection).apply {
+                                    requestMethod = "POST"
+                                    connectTimeout = 3000
+                                    readTimeout = 3000
+                                    doOutput = true
+                                    setRequestProperty("Content-Type", "application/json")
+                                }
+                                val regPayload = org.json.JSONObject().apply {
+                                    put("username", username)
+                                    put("password", password)
+                                }
+                                regConn.outputStream.use { os ->
+                                    os.write(regPayload.toString().toByteArray(Charsets.UTF_8))
+                                }
+                                val regCode = regConn.responseCode
+                                if (regCode == 200) {
+                                    val regText = regConn.inputStream.bufferedReader().use { it.readText() }
+                                    val regJson = org.json.JSONObject(regText)
+                                    token = regJson.optString("token", "")
+                                    serverUserObj = regJson.optJSONObject("user")
+                                    isNewAccount = true
+                                    success = true
+                                } else {
+                                    val regErrBody = try {
+                                        regConn.errorStream?.bufferedReader()?.use { it.readText() } ?: ""
+                                    } catch (_: Exception) { "" }
+                                    val regErrJson = try { org.json.JSONObject(regErrBody) } catch (_: Exception) { null }
+                                    errorMsg = regErrJson?.optString("error", "Registration failed.") ?: "Registration failed."
+                                }
+                                regConn.disconnect()
+                                return@executeWithFailover
+                            } else if (errCode == "INVALID_PASSWORD") {
+                                errorMsg = "Incorrect password. Please try again."
+                            } else {
+                                errorMsg = errJson?.optString("error", "Invalid username or password.") ?: "Invalid username or password."
+                            }
+                        } else if (code == 429) {
+                            errorMsg = "Too many attempts. Please back off."
+                        } else {
+                            errorMsg = "Authentication failed (HTTP $code)."
+                        }
+                        conn.disconnect()
                     }
-                    conn.disconnect()
                 } catch (e: Exception) {
                     errorMsg = "Unable to connect to authentication server. Please check your network connection."
                     success = false
+                }
+
+                if (success) {
+                    val userObj = serverUserObj
+                    if (userObj != null) {
+                        UserLibraryManager.init(this@LoginActivity)
+                        UserLibraryManager.importFromLogin(userObj, token)
+                    }
+                    PlaylistManager.init(this@LoginActivity)
+                    PlaylistManager.syncFromBackend()
                 }
 
                 runOnUiThread {
@@ -114,7 +163,8 @@ class LoginActivity : AppCompatActivity() {
                             token = token,
                             avatar = avatar
                         )
-                        Toast.makeText(this, "Logged in as $username", Toast.LENGTH_SHORT).show()
+                        val welcomeMsg = if (isNewAccount) "Account created! Welcome, $resolvedName" else "Logged in as $resolvedName"
+                        Toast.makeText(this, welcomeMsg, Toast.LENGTH_SHORT).show()
                         launchMainActivity()
                     } else {
                         showError(if (errorMsg.isNotBlank()) errorMsg else "Authentication failed.")
